@@ -1,0 +1,8 @@
+dispatcharr/
+.git/
+.github/
+.gitignore
+README.md
+run_server.py
+*.md
+.DS_Store

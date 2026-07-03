@@ -1,0 +1,8 @@
+services:
+  swaparr:
+    image: ghcr.io/mckenna654/swaparr:latest
+    build: .
+    container_name: swaparr
+    ports:
+      - "8080:8080"
+    restart: unless-stopped

@@ -1,0 +1,14 @@
+# Local Dispatcharr reference copy (not part of Swaparr)
+dispatcharr/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Secrets
+.env
+.env.*
+
+# Logs
+*.log

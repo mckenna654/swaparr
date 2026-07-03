@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Swaparr - Stream Override Control</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔄</text></svg>">
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Custom Vanilla CSS in style.css -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Lucide Icons Library -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- App Shell -->
+  <div class="app-container">
+    
+    <!-- Top Navigation Bar -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-icon">
+          <i data-lucide="refresh-cw" class="logo-rotate"></i>
+        </div>
+        <div class="logo-text">
+          <h1>Swaparr</h1>
+          <span class="sub-text">Dispatcharr Override Tool</span>
+        </div>
+      </div>
+      
+      <div class="header-right">
+        <!-- API Connection Status Badge -->
+        <div id="status-badge" class="status-badge status-disconnected">
+          <span class="status-dot"></span>
+          <span id="status-text">Checking API...</span>
+        </div>
+        
+        <button id="settings-btn" class="icon-btn" aria-label="Open Settings">
+          <i data-lucide="settings"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="app-main">
+      
+      <!-- Stats Summary Banner -->
+      <section class="stats-banner card">
+        <div class="stat-item">
+          <span class="stat-label"><i data-lucide="activity" class="stat-icon text-cyan"></i> Active Streams</span>
+          <span id="stat-active-count" class="stat-value">0</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-label"><i data-lucide="users" class="stat-icon text-purple"></i> Connected Clients</span>
+          <span id="stat-client-count" class="stat-value">0</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-label"><i data-lucide="gauge" class="stat-icon text-pink"></i> Total Bandwidth</span>
+          <span id="stat-bandwidth" class="stat-value">0.00 Mbps</span>
+        </div>
+      </section>
+
+      <!-- Active Streams Section -->
+      <section class="section-container">
+        <div class="section-header">
+          <div class="section-title">
+            <i data-lucide="play-circle" class="section-icon"></i>
+            <h2>Live Streams</h2>
+          </div>
+          <div class="section-actions">
+            <!-- Refresh Controls -->
+            <button id="refresh-btn" class="btn btn-secondary">
+              <i data-lucide="refresh-cw" class="btn-icon"></i> Refresh Now
+            </button>
+            <label class="auto-refresh-toggle">
+              <input type="checkbox" id="auto-refresh-check" checked>
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">Auto-refresh (<span id="refresh-countdown">5</span>s)</span>
+            </label>
+          </div>
+        </div>
+        
+        <!-- Active Streams Grid -->
+        <div id="active-streams-grid" class="streams-grid">
+          <!-- Loading State Placeholder -->
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading active streams...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- All Channels Explorer Section -->
+      <section class="section-container">
+        <div class="section-header flex-col-sm">
+          <div class="section-title">
+            <i data-lucide="tv" class="section-icon"></i>
+            <h2>All Channels Browser</h2>
+          </div>
+          <div class="search-box">
+            <i data-lucide="search" class="search-icon"></i>
+            <input type="text" id="channel-search-input" placeholder="Search channels by name or group...">
+          </div>
+        </div>
+
+        <div class="channels-explorer card">
+          <div class="explorer-table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Ch #</th>
+                  <th>Channel Name</th>
+                  <th>Channel Group</th>
+                  <th>Current Stream / Source</th>
+                  <th class="actions-header">Actions / Override</th>
+                </tr>
+              </thead>
+              <tbody id="channels-table-body">
+                <tr>
+                  <td colspan="5" class="table-placeholder">Loading channel list...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Swaparr &copy; 2026. Custom mobile client for Dispatcharr middleware.</p>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+      <div class="modal-content card">
+        <div class="modal-header">
+          <h2><i data-lucide="settings"></i> Dispatcharr Configuration</h2>
+          <button class="modal-close" id="settings-close-btn">&times;</button>
+        </div>
+        
+        <form id="settings-form">
+          <div class="form-group">
+            <label for="dispatcharr-url">Dispatcharr API URL</label>
+            <input type="url" id="dispatcharr-url" required placeholder="http://192.168.1.100:9191" value="http://localhost:9191">
+            <span class="help-text">The full URL (including port) of your Dispatcharr instance. Example: http://192.168.1.100:9191</span>
+          </div>
+
+          <div class="form-group">
+            <label for="dispatcharr-api-key">API Key (X-API-KEY)</label>
+            <div class="password-input-container">
+              <input type="password" id="dispatcharr-api-key" placeholder="Enter Dispatcharr user API key">
+              <button type="button" id="toggle-api-key-btn" class="toggle-password-btn" aria-label="Toggle Password Visibility">
+                <i data-lucide="eye"></i>
+              </button>
+            </div>
+            <span class="help-text">You can find/generate your API Key in Dispatcharr -> Settings -> Users.</span>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" id="test-connection-btn" class="btn btn-secondary">
+              <i data-lucide="activity"></i> Test Connection
+            </button>
+            <div class="btn-group">
+              <button type="button" id="settings-cancel-btn" class="btn btn-muted">Cancel</button>
+              <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+          </div>
+          
+          <div id="test-connection-result" class="connection-result"></div>
+        </form>
+      </div>
+    </div>
+    
+  </div>
+
+  <!-- Main JavaScript File -->
+  <script src="app.js"></script>
+</body>
+</html>
