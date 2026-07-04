@@ -1,8 +1,16 @@
-# 🔄 Swaparr - Dispatcharr Stream Override Tool
+<div align="center">
+  <img src="Swaparr.png" alt="Swaparr Logo" width="200"/>
+  <h1>🔄 Swaparr</h1>
+  <p><b>Dispatcharr Stream Override Tool</b></p>
+</div>
+
+<div align="center">
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/mckenna654/swaparr/docker-publish.yml?branch=main&style=flat-square)](https://github.com/mckenna654/swaparr/actions)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/mckenna654/swaparr?style=flat-square)](https://github.com/mckenna654/swaparr/commits/main)
 [![Docker Pulls](https://img.shields.io/badge/docker%20pulls-ghcr.io-blue?style=flat-square&logo=docker)](https://github.com/mckenna654/swaparr/pkgs/container/swaparr)
+
+</div>
 
 A beautiful, lightweight, and fully mobile-responsive web dashboard for **Dispatcharr** (middleware for managing IPTV streams, EPG, and proxy connections).
 
