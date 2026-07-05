@@ -18,6 +18,10 @@ A beautiful, lightweight, and fully mobile-responsive web dashboard for **Dispat
 
 Swaparr solves the challenge of managing and overriding streams from mobile web browsers by providing a clean, glassmorphic layout tailored for smaller touch screens.
 
+<div align="center">
+  <img src="screenshot.jpeg" alt="Swaparr Mobile Dashboard UI" width="800" style="border-radius: 12px; margin-top: 15px; margin-bottom: 15px;" />
+</div>
+
 ## Features
 
 -   📺 **Active Stream Monitoring**: Displays channels currently being streamed, uptime, bandwidth, data transferred, and active client counts.
