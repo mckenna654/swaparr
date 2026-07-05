@@ -1242,3 +1242,24 @@ html, body {
     font-size: 0.95rem; /* slightly larger for iOS zooming prevention */
   }
 }
+
+/* Current Source Indicator */
+.current-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.current-source i {
+  width: 14px;
+  height: 14px;
+  color: var(--accent-cyan);
+}
+.current-source-name {
+  color: var(--text);
+  font-weight: 500;
+}
