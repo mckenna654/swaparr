@@ -121,7 +121,8 @@ const State = {
   channelsMap: {}, // Map of database ID -> Channel object
   activeStreams: [], // Active streams list from /proxy/ts/status
   channelStreamsCache: {}, // Cache of stream list for each channel ID: { channelId: [streams] }
-  m3uAccountsMap: {}, // Map of M3U account ID -> name (e.g. "Infinity", "B1G")
+  m3uAccountsMap: {}, // Map of M3U account ID -> name (e.g. "Primary", "Backup")
+  usersMap: {}, // Map of user ID -> username
   pendingSwitches: {}, // Map of channel UUID -> target stream_id awaiting confirmation
 
   refreshInterval: null,
@@ -356,7 +357,7 @@ const State = {
   async refreshAll() {
     try {
       this.updateConnectionStatus(false, "Connecting...");
-      await this.fetchM3uAccounts();
+      await Promise.all([this.fetchM3uAccounts(), this.fetchUsers()]);
       await this.fetchChannels();
 
       // 2. Fetch active streams
@@ -400,6 +401,18 @@ const State = {
     }
 
     return items;
+  },
+
+  async fetchUsers() {
+    try {
+      const users = await this.fetchAllPages("/api/accounts/users/");
+      this.usersMap = {};
+      users.forEach((u) => {
+        this.usersMap[u.id] = u.username || u.email || `User #${u.id}`;
+      });
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+    }
   },
 
   async fetchM3uAccounts() {
@@ -774,21 +787,30 @@ const State = {
           }
 
           listContainer.innerHTML = clients
-            .map(
-              (c) => `
+            .map((c) => {
+              let userDisplay = "";
+              if (c.user_id && c.user_id !== "0") {
+                const username =
+                  this.usersMap[c.user_id] || `User #${c.user_id}`;
+                userDisplay = `<span class="client-user"><i data-lucide="user"></i> ${username}</span>`;
+              }
+
+              return `
             <div class="client-row">
               <div class="client-info">
+                ${userDisplay}
                 <span class="client-ip">${c.ip_address}</span>
-                <span class="client-ua">${c.user_agent}</span>
+                <span class="client-ua" title="${c.user_agent}">${c.user_agent}</span>
               </div>
               <div class="client-stats">
                 <span class="client-rate">${c.current_rate_KBps ? c.current_rate_KBps.toFixed(1) + " KB/s" : "0 KB/s"}</span>
                 <span class="client-uptime">${c.connected_at ? this.formatDuration(Date.now() / 1000 - c.connected_at) : ""}</span>
               </div>
             </div>
-          `,
-            )
+          `;
+            })
             .join("");
+          lucide.createIcons();
         } catch (err) {
           listContainer.innerHTML = `<div style="font-size: 0.75rem; color: var(--accent-red); padding: 10px;">Error loading clients</div>`;
         }

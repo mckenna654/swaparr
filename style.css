@@ -1293,3 +1293,24 @@ html, body {
   font-family: monospace;
   color: var(--text);
 }
+
+/* Client User Identifier */
+.client-user {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-purple);
+  margin-bottom: 2px;
+}
+.client-user i {
+  width: 12px;
+  height: 12px;
+}
+.client-ua {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
