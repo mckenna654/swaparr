@@ -626,9 +626,10 @@ const State = {
 
     // Update the live "Now playing" indicator with what the server strictly reports
     const sourceLabel = card.querySelector(".current-source-name");
+    const isSwitching = this.pendingSwitches[stream.channel_id] != null;
+
     if (sourceLabel) {
-      const pendingId = this.pendingSwitches[stream.channel_id];
-      if (pendingId != null) {
+      if (isSwitching) {
         sourceLabel.textContent = "Switching...";
       } else {
         sourceLabel.textContent = stream.stream_name || "Unknown source";
@@ -640,28 +641,43 @@ const State = {
       toggleLabel.textContent = `Connected Clients (${stream.client_count || 0})`;
     }
 
-    // If a switch is in flight for this channel, keep showing the target the
-    // user picked instead of the stale value the server still reports. Otherwise
-    // sync to whatever Dispatcharr currently reports (this is what makes changes
-    // made elsewhere in Dispatcharr show up here).
-    const pendingId = this.pendingSwitches[stream.channel_id];
-    const desiredStreamId = pendingId != null ? pendingId : stream.stream_id;
-
-    const select = card.querySelector(".override-select");
-    if (select && desiredStreamId && select.value !== String(desiredStreamId)) {
-      select.value = String(desiredStreamId);
-    }
-
     const wrapper = card.querySelector(".select-wrapper");
-    if (channelDbId && wrapper && !wrapper.querySelector(".override-select")) {
+    if (channelDbId && wrapper) {
       this.fetchStreamsForChannel(channelDbId).then((streams) => {
-        this.injectStreamDropdown(
-          wrapper,
-          streams,
-          desiredStreamId,
-          stream.channel_id,
-          channelName,
-        );
+        // Fix Dispatcharr backend pub/sub bug: If stream_id wasn't updated in Redis
+        // by the backend, but the URL was, we find the correct stream_id from the URL.
+        const correctStream = streams.find((s) => s.url === stream.url);
+        if (correctStream && !isSwitching) {
+          stream.stream_id = correctStream.id;
+          if (sourceLabel && sourceLabel.textContent !== "Switching...") {
+            sourceLabel.textContent = correctStream.name || "Unknown source";
+          }
+        }
+
+        // If a switch is in flight for this channel, keep showing the target the
+        // user picked instead of the stale value the server still reports.
+        const pendingId = this.pendingSwitches[stream.channel_id];
+        const desiredStreamId =
+          pendingId != null ? pendingId : stream.stream_id;
+
+        if (!wrapper.querySelector(".override-select")) {
+          this.injectStreamDropdown(
+            wrapper,
+            streams,
+            desiredStreamId,
+            stream.channel_id,
+            channelName,
+          );
+        } else {
+          const select = wrapper.querySelector(".override-select");
+          if (
+            select &&
+            desiredStreamId &&
+            select.value !== String(desiredStreamId)
+          ) {
+            select.value = String(desiredStreamId);
+          }
+        }
       });
     }
   },
@@ -1035,14 +1051,26 @@ const State = {
         "info",
       );
 
-      await this.apiFetch(`/proxy/ts/change_stream/${channelUuid}`, {
-        method: "POST",
-        body: JSON.stringify({ stream_id: targetId }),
-      });
+      const response = await this.apiFetch(
+        `/proxy/ts/change_stream/${channelUuid}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ stream_id: targetId }),
+        },
+      );
+
+      // Dispatcharr sometimes fails to update the stream_id metadata if the switch
+      // is handled via pub/sub by another worker, but it ALWAYS updates the URL.
+      // So we extract the target URL from the response to verify the switch.
+      const targetUrl = response.url;
 
       // The POST only confirms the request was accepted. Poll the status until
       // the switch actually takes effect (or give up after the timeout).
-      const confirmed = await this.confirmStreamSwitch(channelUuid, targetId);
+      const confirmed = await this.confirmStreamSwitch(
+        channelUuid,
+        targetId,
+        targetUrl,
+      );
 
       if (confirmed) {
         Toast.show(
@@ -1072,12 +1100,13 @@ const State = {
     }
   },
 
-  // Poll /proxy/ts/status until the channel reports the target stream_id.
+  // Poll /proxy/ts/status until the channel reports the target stream_id or URL.
   // Keeps the active-streams grid live during the wait. Returns true once the
   // switch is confirmed, or false if it never settles within the timeout.
   async confirmStreamSwitch(
     channelUuid,
     targetId,
+    targetUrl,
     { attempts = 12, intervalMs = 2000 } = {},
   ) {
     for (let i = 0; i < attempts; i++) {
@@ -1096,7 +1125,12 @@ const State = {
         // Channel is no longer active (stopped/ended) — nothing left to confirm.
         if (!channel) return false;
 
-        if (channel.stream_id === targetId) {
+        // Check against either targetId or targetUrl since Dispatcharr backend
+        // doesn't reliably update stream_id via pub/sub but does update url
+        if (
+          String(channel.stream_id) === String(targetId) ||
+          (targetUrl && channel.url === targetUrl)
+        ) {
           return true;
         }
       } catch (err) {
