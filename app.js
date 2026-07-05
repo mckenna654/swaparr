@@ -123,7 +123,6 @@ const State = {
   channelStreamsCache: {}, // Cache of stream list for each channel ID: { channelId: [streams] }
   m3uAccountsMap: {}, // Map of M3U account ID -> name (e.g. "Primary", "Backup")
   usersMap: {}, // Map of user ID -> username
-  pendingSwitches: {}, // Map of channel UUID -> target stream_id awaiting confirmation
 
   refreshInterval: null,
   refreshCountdown: 5,
@@ -594,90 +593,40 @@ const State = {
   updateStreamCard(card, stream) {
     const channelDbId = this.channelsByUuid[stream.channel_id];
     const channelInfo = channelDbId ? this.channelsMap[channelDbId] : null;
-    const channelName =
-      stream.channel_name ||
-      (channelInfo ? channelInfo.name : "Unknown Channel");
+    const channelName = stream.channel_name || (channelInfo ? channelInfo.name : 'Unknown Channel');
 
-    const isBuffering =
-      stream.state === "buffering" ||
-      stream.state === "connecting" ||
-      stream.state === "initializing";
-    const statusClass = isBuffering
-      ? "status-buffering-glow"
-      : "status-active-glow";
-    const statusText = stream.state || "active";
+    const isBuffering = stream.state === 'buffering' || stream.state === 'connecting' || stream.state === 'initializing';
+    const statusClass = isBuffering ? 'status-buffering-glow' : 'status-active-glow';
+    const statusText = stream.state || 'active';
 
-    const badge = card.querySelector(".stream-status-badge");
+    const badge = card.querySelector('.stream-status-badge');
     if (badge) {
       badge.className = `stream-status-badge ${statusClass}`;
       badge.textContent = statusText;
     }
 
-    const specValues = card.querySelectorAll(".spec-value");
+    const specValues = card.querySelectorAll('.spec-value');
     if (specValues.length >= 4) {
       specValues[0].textContent = this.formatDuration(stream.uptime);
-      specValues[1].textContent = this.formatBitrate(
-        stream.total_bytes,
-        stream.uptime,
-      );
+      specValues[1].textContent = this.formatBitrate(stream.total_bytes, stream.uptime);
       specValues[2].textContent = this.formatBytes(stream.total_bytes);
       specValues[3].textContent = `${stream.client_count || 0} active`;
     }
 
-    // Update the live "Now playing" indicator with what the server strictly reports
-    const sourceLabel = card.querySelector(".current-source-name");
-    const isSwitching = this.pendingSwitches[stream.channel_id] != null;
-
-    if (sourceLabel) {
-      if (isSwitching) {
-        sourceLabel.textContent = "Switching...";
-      } else {
-        sourceLabel.textContent = stream.stream_name || "Unknown source";
-      }
-    }
-
-    const toggleLabel = card.querySelector(".clients-toggle span");
+    const toggleLabel = card.querySelector('.clients-toggle span');
     if (toggleLabel) {
       toggleLabel.textContent = `Connected Clients (${stream.client_count || 0})`;
     }
 
-    const wrapper = card.querySelector(".select-wrapper");
-    if (channelDbId && wrapper) {
-      this.fetchStreamsForChannel(channelDbId).then((streams) => {
-        // Fix Dispatcharr backend pub/sub bug: If stream_id wasn't updated in Redis
-        // by the backend, but the URL was, we find the correct stream_id from the URL.
-        const correctStream = streams.find((s) => s.url === stream.url);
-        if (correctStream && !isSwitching) {
-          stream.stream_id = correctStream.id;
-          if (sourceLabel && sourceLabel.textContent !== "Switching...") {
-            sourceLabel.textContent = correctStream.name || "Unknown source";
-          }
-        }
+    const select = card.querySelector('.override-select');
+    if (select && stream.stream_id && select.value !== String(stream.stream_id)) {
+      select.value = String(stream.stream_id);
+    }
 
-        // If a switch is in flight for this channel, keep showing the target the
-        // user picked instead of the stale value the server still reports.
-        const pendingId = this.pendingSwitches[stream.channel_id];
-        const desiredStreamId =
-          pendingId != null ? pendingId : stream.stream_id;
-
-        if (!wrapper.querySelector(".override-select")) {
-          this.injectStreamDropdown(
-            wrapper,
-            streams,
-            desiredStreamId,
-            stream.channel_id,
-            channelName,
-          );
-        } else {
-          const select = wrapper.querySelector(".override-select");
-          if (
-            select &&
-            desiredStreamId &&
-            select.value !== String(desiredStreamId)
-          ) {
-            select.value = String(desiredStreamId);
-          }
-        }
+    const wrapper = card.querySelector('.select-wrapper');
+    if (channelDbId && wrapper && !wrapper.querySelector('.override-select')) {
+      this.fetchStreamsForChannel(channelDbId).then(streams => {
+        this.injectStreamDropdown(wrapper, streams, stream.stream_id, stream.channel_id, channelName);
       });
     }
   },
@@ -739,10 +688,6 @@ const State = {
         <label class="override-label"><i data-lucide="list"></i> Switch Stream Source</label>
         <div class="select-wrapper" id="select-wrapper-${stream.channel_id}">
           <div class="spinner" style="width: 20px; height: 20px;"></div>
-        </div>
-        <div class="current-source">
-          <i data-lucide="radio"></i>
-          <span>Now playing: <strong class="current-source-name">${stream.stream_name || "Unknown source"}</strong></span>
         </div>
       </div>
 
@@ -1034,122 +979,20 @@ const State = {
   },
 
   async switchStream(channelUuid, streamId, channelName, streamName) {
-    const targetId = parseInt(streamId);
-
-    // Dispatcharr's change_stream endpoint is asynchronous: it accepts the
-    // request immediately, but the stream manager still has to reconnect to the
-    // new source before the change is reflected in /proxy/ts/status. We mark the
-    // switch as pending so refreshes don't snap the dropdown back to the old
-    // stream while the switch is still settling.
-    this.pendingSwitches[channelUuid] = targetId;
-    this.applyPendingSelection(channelUuid, targetId);
-
     try {
-      Toast.show(
-        "Switching Stream",
-        `Routing "${channelName}" to "${streamName}"...`,
-        "info",
-      );
+      Toast.show('Switching Stream', `Routing "${channelName}" to "${streamName}"...`, 'info');
 
-      const response = await this.apiFetch(
-        `/proxy/ts/change_stream/${channelUuid}`,
-        {
-          method: "POST",
-          body: JSON.stringify({ stream_id: targetId }),
-        },
-      );
+      await this.apiFetch(`/proxy/ts/change_stream/${channelUuid}`, {
+        method: 'POST',
+        body: JSON.stringify({ stream_id: parseInt(streamId) })
+      });
 
-      // Dispatcharr sometimes fails to update the stream_id metadata if the switch
-      // is handled via pub/sub by another worker, but it ALWAYS updates the URL.
-      // So we extract the target URL from the response to verify the switch.
-      const targetUrl = response.url;
-
-      // The POST only confirms the request was accepted. Poll the status until
-      // the switch actually takes effect (or give up after the timeout).
-      const confirmed = await this.confirmStreamSwitch(
-        channelUuid,
-        targetId,
-        targetUrl,
-      );
-
-      if (confirmed) {
-        Toast.show(
-          "Stream Switched",
-          `Successfully routed "${channelName}" to "${streamName}".`,
-          "success",
-        );
-      } else {
-        Toast.show(
-          "Switch Not Confirmed",
-          `Dispatcharr accepted the request but "${channelName}" has not switched to "${streamName}" yet. The source may be slow to connect or unavailable, and it may fall back to the previous stream.`,
-          "error",
-        );
-      }
+      Toast.show('Stream Switched', `Successfully routed "${channelName}" to "${streamName}".`, 'success');
+      await this.refreshActiveStreamsOnly();
     } catch (err) {
       console.error(err);
-      Toast.show(
-        "Switch Failed",
-        `Could not switch stream: ${err.message}`,
-        "error",
-      );
+      Toast.show('Switch Failed', `Could not switch stream: ${err.message}`, 'error');
       throw err;
-    } finally {
-      // Stop guarding the dropdown and sync it to whatever the server now reports.
-      delete this.pendingSwitches[channelUuid];
-      await this.refreshActiveStreamsOnly();
-    }
-  },
-
-  // Poll /proxy/ts/status until the channel reports the target stream_id or URL.
-  // Keeps the active-streams grid live during the wait. Returns true once the
-  // switch is confirmed, or false if it never settles within the timeout.
-  async confirmStreamSwitch(
-    channelUuid,
-    targetId,
-    targetUrl,
-    { attempts = 12, intervalMs = 2000 } = {},
-  ) {
-    for (let i = 0; i < attempts; i++) {
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
-
-      try {
-        const data = await this.apiFetch("/proxy/ts/status");
-        this.activeStreams = data.channels || [];
-        await this.renderActiveStreams();
-        this.updateConnectionStatus(true);
-
-        const channel = this.activeStreams.find(
-          (c) => c.channel_id === channelUuid,
-        );
-
-        // Channel is no longer active (stopped/ended) — nothing left to confirm.
-        if (!channel) return false;
-
-        // Check against either targetId or targetUrl since Dispatcharr backend
-        // doesn't reliably update stream_id via pub/sub but does update url
-        if (
-          String(channel.stream_id) === String(targetId) ||
-          (targetUrl && channel.url === targetUrl)
-        ) {
-          return true;
-        }
-      } catch (err) {
-        // Ignore transient errors and keep polling.
-        console.error("Switch confirmation poll failed:", err);
-      }
-    }
-    return false;
-  },
-
-  // Immediately reflect the desired stream in a card's dropdown without waiting
-  // for a refresh, so the UI feels responsive during a pending switch.
-  applyPendingSelection(channelUuid, targetId) {
-    const card = document.querySelector(
-      `.stream-card[data-channel-id="${channelUuid}"]`,
-    );
-    const select = card && card.querySelector(".override-select");
-    if (select && select.value !== String(targetId)) {
-      select.value = String(targetId);
     }
   },
 
