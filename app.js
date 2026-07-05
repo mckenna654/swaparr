@@ -128,10 +128,11 @@ const State = {
   refreshCountdown: 5,
   countdownInterval: null,
 
-  init() {
-    this.loadConfig();
+  async init() {
     this.setupEventListeners();
     lucide.createIcons();
+
+    await this.loadConfig();
 
     // Try initial fetch
     if (this.config.url) {
@@ -141,36 +142,28 @@ const State = {
     }
   },
 
-  loadConfig() {
-    const savedUrl = localStorage.getItem("swaparr_url");
-    const savedApiKey = localStorage.getItem("swaparr_api_key");
-
-    if (savedUrl) this.config.url = savedUrl;
-    if (savedApiKey) this.config.apiKey = savedApiKey;
+  async loadConfig() {
+    try {
+      const response = await fetch("/config.json");
+      if (response.ok) {
+        const configData = await response.json();
+        if (configData.url) {
+          let normalizedUrl = configData.url.trim();
+          if (normalizedUrl.endsWith("/")) {
+            normalizedUrl = normalizedUrl.slice(0, -1);
+          }
+          this.config.url = normalizedUrl;
+        }
+        if (configData.apiKey) {
+          this.config.apiKey = configData.apiKey.trim();
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load server config:", err);
+    }
 
     document.getElementById("dispatcharr-url").value = this.config.url;
     document.getElementById("dispatcharr-api-key").value = this.config.apiKey;
-  },
-
-  saveConfig(url, apiKey) {
-    // Normalize URL
-    let normalizedUrl = url.trim();
-    if (normalizedUrl.endsWith("/")) {
-      normalizedUrl = normalizedUrl.slice(0, -1);
-    }
-
-    this.config.url = normalizedUrl;
-    this.config.apiKey = apiKey.trim();
-
-    localStorage.setItem("swaparr_url", this.config.url);
-    localStorage.setItem("swaparr_api_key", this.config.apiKey);
-
-    Toast.show(
-      "Configuration Saved",
-      "Settings updated successfully.",
-      "success",
-    );
-    this.refreshAll();
   },
 
   getHeaders() {
@@ -243,12 +236,9 @@ const State = {
         lucide.createIcons();
       });
 
-    // Settings form submit
+    // Settings form submit prevented
     document.getElementById("settings-form").addEventListener("submit", (e) => {
       e.preventDefault();
-      const url = document.getElementById("dispatcharr-url").value;
-      const apiKey = document.getElementById("dispatcharr-api-key").value;
-      this.saveConfig(url, apiKey);
       this.closeSettings();
     });
 

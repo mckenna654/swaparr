@@ -1,6 +1,7 @@
 FROM nginx:1.27-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY 40-generate-config.sh /docker-entrypoint.d/
 COPY index.html app.js style.css /usr/share/nginx/html/
 
 EXPOSE 8080

@@ -25,7 +25,7 @@ Swaparr solves the challenge of managing and overriding streams from mobile web 
 -   ⏹️ **Stream Lifecycle Controls**: Stop active streams (terminate and release client slots) directly from your phone.
 -   🔍 **Channels Browser**: Search all configured channels and pre-configure/override their stream sources even when they are offline.
 -   👥 **Client Detail Inspector**: Expand any active channel card to see exactly who (IP, User-Agent, transfer speed) is watching.
--   ⚙️ **Local Settings Storage**: Remembers your Dispatcharr Server URL and API Key in `localStorage` for convenience and security.
+-   ⚙️ **Server-Side Configuration**: Securely provide your API key via environment variables so you never have to re-type it on different devices.
 -   ⏰ **Auto-refresh Engine**: Real-time stats engine with configurable automatic polling.
 
 ## Prerequisites
@@ -45,13 +45,9 @@ docker run -d \
   --name swaparr \
   --restart unless-stopped \
   -p 8080:8080 \
+  -e DISPATCHARR_URL="http://192.168.1.100:9191" \
+  -e DISPATCHARR_API_KEY="your_api_key_here" \
   ghcr.io/mckenna654/swaparr:latest
-```
-
-Or with Docker Compose:
-
-```bash
-docker compose up -d
 ```
 
 Open **http://your-server-ip:8080** on your phone or browser.
@@ -61,14 +57,27 @@ Open **http://your-server-ip:8080** on your phone or browser.
 1. Go to **Docker → Add Container**
 2. Set **Repository** to `ghcr.io/mckenna654/swaparr:latest`
 3. Add a port mapping: `8080` (host) → `8080` (container)
-4. Set **Restart Policy** to `unless-stopped`
-5. Apply, then open `http://<unraid-ip>:8080`
-
-No volumes are required. Swaparr stores your Dispatcharr URL and API key in the browser's `localStorage`.
+4. Click **Add another Path, Port, Variable**:
+   - **Config Type**: Variable
+   - **Name**: Dispatcharr URL
+   - **Key**: `DISPATCHARR_URL`
+   - **Value**: `http://<your-dispatcharr-ip>:9191`
+5. Click **Add another Path, Port, Variable** again:
+   - **Config Type**: Variable
+   - **Name**: API Key
+   - **Key**: `DISPATCHARR_API_KEY`
+   - **Value**: `<your-api-key>`
+6. Apply, then open `http://<unraid-ip>:8080`
 
 ### Option 2: Python (local development)
 
-1.  **Start the Server**:
+1.  **Set Environment Variables**:
+    ```bash
+    export DISPATCHARR_URL="http://192.168.1.100:9191"
+    export DISPATCHARR_API_KEY="your_api_key_here"
+    ```
+
+2.  **Start the Server**:
     Run the lightweight Python server script on your host machine:
     ```bash
     python3 run_server.py
@@ -88,14 +97,6 @@ No volumes are required. Swaparr stores your Dispatcharr URL and API key in the 
       👉  http://192.168.1.50:8080
     ```
     Open the mobile address on your phone's web browser.
-
-### Configure Swaparr
-
-3.  **Configure**:
-    -   Click the **Gear icon** (Settings) in the top-right corner.
-    -   Enter your **Dispatcharr URL** and **API Key**.
-    -   Click **Test Connection** to confirm a successful link.
-    -   Click **Save Settings**.
 
 ## How Override Works Internally
 

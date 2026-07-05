@@ -5,4 +5,7 @@ services:
     container_name: swaparr
     ports:
       - "8080:8080"
+    environment:
+      - DISPATCHARR_URL=http://192.168.1.100:9191
+      - DISPATCHARR_API_KEY=your_api_key_here
     restart: unless-stopped
