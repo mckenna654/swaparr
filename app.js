@@ -119,6 +119,7 @@ const State = {
   channels: [], // Full channel objects from /api/channels/
   channelsByUuid: {}, // Map of UUID -> database ID
   channelsMap: {}, // Map of database ID -> Channel object
+  channelGroupsMap: {}, // Map of group ID -> group name
   activeStreams: [], // Active streams list from /proxy/ts/status
   channelStreamsCache: {}, // Cache of stream list for each channel ID: { channelId: [streams] }
   m3uAccountsMap: {}, // Map of M3U account ID -> name (e.g. "Primary", "Backup")
@@ -356,7 +357,11 @@ const State = {
   async refreshAll() {
     try {
       this.updateConnectionStatus(false, "Connecting...");
-      await Promise.all([this.fetchM3uAccounts(), this.fetchUsers()]);
+      await Promise.all([
+        this.fetchM3uAccounts(),
+        this.fetchUsers(),
+        this.fetchChannelGroups(),
+      ]);
       await this.fetchChannels();
 
       // 2. Fetch active streams
@@ -428,6 +433,18 @@ const State = {
     } catch (err) {
       console.error("Fetch M3U accounts failed:", err);
       this.m3uAccountsMap = {};
+    }
+  },
+
+  async fetchChannelGroups() {
+    try {
+      const groups = await this.fetchAllPages("/api/channels/groups/");
+      this.channelGroupsMap = {};
+      groups.forEach((g) => {
+        this.channelGroupsMap[g.id] = g.name || `Group #${g.id}`;
+      });
+    } catch (err) {
+      console.error("Failed to fetch channel groups:", err);
     }
   },
 
@@ -593,40 +610,60 @@ const State = {
   updateStreamCard(card, stream) {
     const channelDbId = this.channelsByUuid[stream.channel_id];
     const channelInfo = channelDbId ? this.channelsMap[channelDbId] : null;
-    const channelName = stream.channel_name || (channelInfo ? channelInfo.name : 'Unknown Channel');
+    const channelName =
+      stream.channel_name ||
+      (channelInfo ? channelInfo.name : "Unknown Channel");
 
-    const isBuffering = stream.state === 'buffering' || stream.state === 'connecting' || stream.state === 'initializing';
-    const statusClass = isBuffering ? 'status-buffering-glow' : 'status-active-glow';
-    const statusText = stream.state || 'active';
+    const isBuffering =
+      stream.state === "buffering" ||
+      stream.state === "connecting" ||
+      stream.state === "initializing";
+    const statusClass = isBuffering
+      ? "status-buffering-glow"
+      : "status-active-glow";
+    const statusText = stream.state || "active";
 
-    const badge = card.querySelector('.stream-status-badge');
+    const badge = card.querySelector(".stream-status-badge");
     if (badge) {
       badge.className = `stream-status-badge ${statusClass}`;
       badge.textContent = statusText;
     }
 
-    const specValues = card.querySelectorAll('.spec-value');
+    const specValues = card.querySelectorAll(".spec-value");
     if (specValues.length >= 4) {
       specValues[0].textContent = this.formatDuration(stream.uptime);
-      specValues[1].textContent = this.formatBitrate(stream.total_bytes, stream.uptime);
+      specValues[1].textContent = this.formatBitrate(
+        stream.total_bytes,
+        stream.uptime,
+      );
       specValues[2].textContent = this.formatBytes(stream.total_bytes);
       specValues[3].textContent = `${stream.client_count || 0} active`;
     }
 
-    const toggleLabel = card.querySelector('.clients-toggle span');
+    const toggleLabel = card.querySelector(".clients-toggle span");
     if (toggleLabel) {
       toggleLabel.textContent = `Connected Clients (${stream.client_count || 0})`;
     }
 
-    const select = card.querySelector('.override-select');
-    if (select && stream.stream_id && select.value !== String(stream.stream_id)) {
+    const select = card.querySelector(".override-select");
+    if (
+      select &&
+      stream.stream_id &&
+      select.value !== String(stream.stream_id)
+    ) {
       select.value = String(stream.stream_id);
     }
 
-    const wrapper = card.querySelector('.select-wrapper');
-    if (channelDbId && wrapper && !wrapper.querySelector('.override-select')) {
-      this.fetchStreamsForChannel(channelDbId).then(streams => {
-        this.injectStreamDropdown(wrapper, streams, stream.stream_id, stream.channel_id, channelName);
+    const wrapper = card.querySelector(".select-wrapper");
+    if (channelDbId && wrapper && !wrapper.querySelector(".override-select")) {
+      this.fetchStreamsForChannel(channelDbId).then((streams) => {
+        this.injectStreamDropdown(
+          wrapper,
+          streams,
+          stream.stream_id,
+          stream.channel_id,
+          channelName,
+        );
       });
     }
   },
@@ -652,8 +689,10 @@ const State = {
       stream.channel_name ||
       (channelInfo ? channelInfo.name : "Unknown Channel");
     const groupName =
-      channelInfo && channelInfo.channel_group
-        ? channelInfo.channel_group.name
+      channelInfo &&
+      channelInfo.channel_group_id &&
+      this.channelGroupsMap[channelInfo.channel_group_id]
+        ? this.channelGroupsMap[channelInfo.channel_group_id]
         : "No Group";
 
     card.innerHTML = `
@@ -859,7 +898,10 @@ const State = {
     itemsToRender.forEach((ch) => {
       const tr = document.createElement("tr");
 
-      const groupName = ch.channel_group ? ch.channel_group.name : "No Group";
+      const groupName =
+        ch.channel_group_id && this.channelGroupsMap[ch.channel_group_id]
+          ? this.channelGroupsMap[ch.channel_group_id]
+          : "No Group";
 
       // Determine active stream name (if channel is actively being streamed)
       const activeStream = this.activeStreams.find(
@@ -980,18 +1022,30 @@ const State = {
 
   async switchStream(channelUuid, streamId, channelName, streamName) {
     try {
-      Toast.show('Switching Stream', `Routing "${channelName}" to "${streamName}"...`, 'info');
+      Toast.show(
+        "Switching Stream",
+        `Routing "${channelName}" to "${streamName}"...`,
+        "info",
+      );
 
       await this.apiFetch(`/proxy/ts/change_stream/${channelUuid}`, {
-        method: 'POST',
-        body: JSON.stringify({ stream_id: parseInt(streamId) })
+        method: "POST",
+        body: JSON.stringify({ stream_id: parseInt(streamId) }),
       });
 
-      Toast.show('Stream Switched', `Successfully routed "${channelName}" to "${streamName}".`, 'success');
+      Toast.show(
+        "Stream Switched",
+        `Successfully routed "${channelName}" to "${streamName}".`,
+        "success",
+      );
       await this.refreshActiveStreamsOnly();
     } catch (err) {
       console.error(err);
-      Toast.show('Switch Failed', `Could not switch stream: ${err.message}`, 'error');
+      Toast.show(
+        "Switch Failed",
+        `Could not switch stream: ${err.message}`,
+        "error",
+      );
       throw err;
     }
   },
