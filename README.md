@@ -51,8 +51,11 @@ docker run -d \
   -p 8080:8080 \
   -e DISPATCHARR_URL="http://192.168.1.100:9191" \
   -e DISPATCHARR_API_KEY="your_api_key_here" \
+  -e NGINX_PORT="8080" \
   ghcr.io/mckenna654/swaparr:latest
 ```
+
+*Note: The internal container port defaults to 8080, but can be changed via the `NGINX_PORT` environment variable if you need to run it behind gluetun or another network setup.*
 
 Open **http://your-server-ip:8080** on your phone or browser.
 
@@ -71,7 +74,10 @@ Open **http://your-server-ip:8080** on your phone or browser.
    - **Name**: API Key
    - **Key**: `DISPATCHARR_API_KEY`
    - **Value**: `<your-api-key>`
-6. Apply, then open `http://<unraid-ip>:8080`
+6. *(Optional)* If you need to change the internal port (e.g. for Gluetun), add another **Variable**:
+   - **Key**: `NGINX_PORT`
+   - **Value**: `8080`
+7. Apply, then open `http://<unraid-ip>:8080`
 
 ### Option 2: Python (local development)
 
