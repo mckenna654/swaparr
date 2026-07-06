@@ -1,10 +1,15 @@
 FROM nginx:1.27-alpine
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN apk add --no-cache gettext
+
+COPY nginx.conf.template /etc/nginx/conf.d/default.conf.template
 COPY 40-generate-config.sh /docker-entrypoint.d/
 COPY index.html app.js style.css Swaparr.png /usr/share/nginx/html/
 
-EXPOSE 8080
+ARG NGINX_PORT=8080
+ENV NGINX_PORT=${NGINX_PORT}
+
+EXPOSE ${NGINX_PORT}
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:${NGINX_PORT}/ >/dev/null || exit 1

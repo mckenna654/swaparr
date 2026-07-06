@@ -1,0 +1,16 @@
+server {
+    listen ${NGINX_PORT};
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location ~* \.(js|css|html|svg|ico)$ {
+        expires 1h;
+        add_header Cache-Control "public, must-revalidate";
+    }
+}
