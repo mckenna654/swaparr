@@ -30,6 +30,7 @@ Swaparr solves the challenge of managing and overriding streams from mobile web 
 -   🔍 **Channels Browser**: Search all configured channels and pre-configure/override their stream sources even when they are offline.
 -   👥 **Client Detail Inspector**: Expand any active channel card to see exactly who (IP, User-Agent, transfer speed) is watching.
 -   ⚙️ **Server-Side Configuration**: Securely provide your API key via environment variables so you never have to re-type it on different devices.
+-   📱 **Native App Experience**: Full PWA support for Android ("Install App") and iOS ("Add to Home Screen") for a beautiful, fullscreen standalone dashboard.
 -   ⏰ **Auto-refresh Engine**: Real-time stats engine with configurable automatic polling.
 
 ## Prerequisites
