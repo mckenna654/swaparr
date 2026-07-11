@@ -121,6 +121,7 @@ const State = {
   channelsMap: {}, // Map of database ID -> Channel object
   channelGroupsMap: {}, // Map of group ID -> group name
   activeStreams: [], // Active streams list from /proxy/ts/status
+  streamOverrides: {}, // Map of channel UUID -> { streamId, url } for switches /proxy/ts/status hasn't caught up with
   channelStreamsCache: {}, // Cache of stream list for each channel ID: { channelId: [streams] }
   m3uAccountsMap: {}, // Map of M3U account ID -> name (e.g. "Primary", "Backup")
   usersMap: {}, // Map of user ID -> username
@@ -475,6 +476,12 @@ const State = {
       const data = await this.apiFetch("/proxy/ts/status");
       this.activeStreams = data.channels || [];
 
+      // Forget remembered switches for channels that stopped streaming
+      const activeUuids = new Set(this.activeStreams.map((s) => s.channel_id));
+      Object.keys(this.streamOverrides).forEach((uuid) => {
+        if (!activeUuids.has(uuid)) delete this.streamOverrides[uuid];
+      });
+
       // Update statistics panel
       document.getElementById("stat-active-count").textContent =
         this.activeStreams.length;
@@ -542,6 +549,35 @@ const State = {
       return this.m3uAccountsMap[accountId];
     if (accountId) return `M3U #${accountId}`;
     return "Unknown Source";
+  },
+
+  // Dispatcharr only writes the new stream_id back to /proxy/ts/status
+  // metadata when the change_stream request happens to land on the uwsgi
+  // worker that owns the stream ("owner": true in the response). On the
+  // non-owner path the switch still succeeds, but status stream_id stays
+  // stale while the status url IS updated on both paths
+  // (Dispatcharr/Dispatcharr#1412). Resolve the stream id to display by
+  // checking whether the url we switched to is still the live upstream.
+  effectiveStreamId(stream) {
+    const override = this.streamOverrides[stream.channel_id];
+    if (!override) return stream.stream_id;
+
+    // Server caught up (switch landed on the owner worker): stop overriding.
+    if (String(stream.stream_id) === String(override.streamId)) {
+      delete this.streamOverrides[stream.channel_id];
+      return stream.stream_id;
+    }
+
+    // Our switched url is still the live upstream: status stream_id is the
+    // stale value, ours is the truth.
+    if (stream.url && stream.url === override.url) {
+      return override.streamId;
+    }
+
+    // The upstream moved on (server-side failover, another client switched,
+    // or the channel restarted): trust the server again.
+    delete this.streamOverrides[stream.channel_id];
+    return stream.stream_id;
   },
 
   buildStreamSelect(streams, activeStreamId, channelUuid, channelName) {
@@ -645,13 +681,11 @@ const State = {
       toggleLabel.textContent = `Connected Clients (${stream.client_count || 0})`;
     }
 
+    const activeStreamId = this.effectiveStreamId(stream);
+
     const select = card.querySelector(".override-select");
-    if (
-      select &&
-      stream.stream_id &&
-      select.value !== String(stream.stream_id)
-    ) {
-      select.value = String(stream.stream_id);
+    if (select && activeStreamId && select.value !== String(activeStreamId)) {
+      select.value = String(activeStreamId);
     }
 
     const wrapper = card.querySelector(".select-wrapper");
@@ -660,7 +694,7 @@ const State = {
         this.injectStreamDropdown(
           wrapper,
           streams,
-          stream.stream_id,
+          activeStreamId,
           stream.channel_id,
           channelName,
         );
@@ -753,7 +787,7 @@ const State = {
         this.injectStreamDropdown(
           wrapper,
           streams,
-          stream.stream_id,
+          this.effectiveStreamId(stream),
           stream.channel_id,
           channelName,
         );
@@ -942,8 +976,8 @@ const State = {
         // If channel is actively streaming, highlight the active stream.
         // Otherwise look for the default profile or first stream.
         let activeStreamId = null;
-        if (activeStream && activeStream.stream_id) {
-          activeStreamId = activeStream.stream_id;
+        if (activeStream) {
+          activeStreamId = this.effectiveStreamId(activeStream) || null;
         }
 
         // Render name of the current active stream (or first stream name as placeholder)
@@ -1028,10 +1062,25 @@ const State = {
         "info",
       );
 
-      await this.apiFetch(`/proxy/ts/change_stream/${channelUuid}`, {
-        method: "POST",
-        body: JSON.stringify({ stream_id: parseInt(streamId) }),
-      });
+      const result = await this.apiFetch(
+        `/proxy/ts/change_stream/${channelUuid}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ stream_id: parseInt(streamId) }),
+        },
+      );
+
+      // Unless the request landed on the owner worker (result.owner),
+      // /proxy/ts/status keeps reporting the OLD stream_id even though the
+      // switch succeeded. Remember what we switched to, keyed by the new
+      // upstream url, so effectiveStreamId() can keep the UI on the right
+      // stream across refreshes.
+      if (result && result.url) {
+        this.streamOverrides[channelUuid] = {
+          streamId: parseInt(streamId),
+          url: result.url,
+        };
+      }
 
       Toast.show(
         "Stream Switched",
