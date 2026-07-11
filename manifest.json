@@ -1,0 +1,17 @@
+{
+  "name": "Swaparr",
+  "short_name": "Swaparr",
+  "description": "Dispatcharr Stream Override Dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "Swaparr.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}

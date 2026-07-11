@@ -583,14 +583,6 @@ const State = {
       return;
     }
 
-    const existingSelect = wrapper.querySelector(".override-select");
-    if (existingSelect) {
-      if (activeStreamId && existingSelect.value !== String(activeStreamId)) {
-        existingSelect.value = String(activeStreamId);
-      }
-      return;
-    }
-
     const select = this.buildStreamSelect(
       streams,
       activeStreamId,
@@ -823,6 +815,12 @@ const State = {
   async renderActiveStreams() {
     const grid = document.getElementById("active-streams-grid");
 
+    // Invalidate streams cache for active channels to ensure dropdowns show current state
+    this.activeStreams.forEach((s) => {
+      const dbId = this.channelsByUuid[s.channel_id];
+      if (dbId) delete this.channelStreamsCache[dbId];
+    });
+
     if (this.activeStreams.length === 0) {
       grid.innerHTML = `
         <div class="empty-state">
@@ -861,6 +859,11 @@ const State = {
   },
 
   renderChannelsExplorer() {
+    // Invalidate streams cache so dropdowns show fresh data
+    Object.keys(this.channelStreamsCache).forEach((key) => {
+      delete this.channelStreamsCache[key];
+    });
+
     const tbody = document.getElementById("channels-table-body");
     const query = document
       .getElementById("channel-search-input")
@@ -970,10 +973,15 @@ const State = {
           const streamId = e.target.value;
           const streamName = e.target.options[e.target.selectedIndex].text;
 
-          if (activeStream) {
+          // Look up current active stream (not stale closure from render time)
+          const currentActiveStream = this.activeStreams.find(
+            (s) => this.channelsByUuid[s.channel_id] === ch.id,
+          );
+
+          if (currentActiveStream) {
             // Live switch since it is currently streaming!
             await this.switchStream(
-              activeStream.channel_id,
+              currentActiveStream.channel_id,
               streamId,
               ch.name,
               streamName,
@@ -1038,7 +1046,14 @@ const State = {
         `Successfully routed "${channelName}" to "${streamName}".`,
         "success",
       );
+
+      // Refresh both pages so the user sees the change regardless of which tab they're on
       await this.refreshActiveStreamsOnly();
+
+      // Re-render the explorer table to update its dropdowns (only if it's in the DOM)
+      if (document.getElementById("channels-table-body")) {
+        this.renderChannelsExplorer();
+      }
     } catch (err) {
       console.error(err);
       Toast.show(
