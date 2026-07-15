@@ -585,6 +585,92 @@ const State = {
     arrow.innerHTML = `<i data-lucide="chevron-down" style="width: 16px; height: 16px;"></i>`;
     wrapper.appendChild(arrow);
     lucide.createIcons();
+
+    // Render initial pills
+    this.renderStreamPills(channelUuid, select.value, streams);
+
+    // Update pills on select change (in addition to the API call)
+    select.addEventListener("change", () => {
+      this.renderStreamPills(channelUuid, select.value, streams);
+    });
+  },
+
+  renderStreamPills(channelUuid, selectedStreamId, streams) {
+    const container = document.getElementById(`pills-container-${channelUuid}`);
+    if (!container) return;
+
+    const stream = streams.find((s) => String(s.id) === String(selectedStreamId));
+    if (!stream) {
+      container.innerHTML = "";
+      return;
+    }
+
+    let pillsHtml = "";
+
+    // 1. Parse Video Quality (stream_stats)
+    if (stream.stream_stats) {
+      try {
+        const stats = typeof stream.stream_stats === "string" ? JSON.parse(stream.stream_stats) : stream.stream_stats;
+        
+        // Resolution Pill
+        if (stats.resolution) {
+          const parts = String(stats.resolution).toLowerCase().split('x');
+          const height = parts.length === 2 ? parseInt(parts[1], 10) : parseInt(stats.resolution, 10);
+          
+          if (!isNaN(height)) {
+            const resLabel = height >= 2160 ? "4K" : height >= 1080 ? "FHD" : height >= 720 ? "HD" : "SD";
+            pillsHtml += `<span class="pill pill-resolution">${resLabel} (${height}p)</span>`;
+          } else {
+            pillsHtml += `<span class="pill pill-resolution">${stats.resolution}</span>`;
+          }
+        }
+        
+        // Framerate Pill
+        if (stats.source_fps) {
+          const fps = parseFloat(stats.source_fps);
+          if (!isNaN(fps)) {
+            pillsHtml += `<span class="pill pill-fps">${Math.round(fps)} fps</span>`;
+          }
+        }
+        
+        // Video Codec Pill
+        if (stats.video_codec) {
+          const codecClean = stats.video_codec.toUpperCase().replace(/AVC1/g, "H.264").replace(/HEVC|H265/g, "HEVC");
+          pillsHtml += `<span class="pill pill-codec"><i data-lucide="video"></i> ${codecClean}</span>`;
+        }
+        
+        // Audio Codec Pill
+        if (stats.audio_codec) {
+          const audioClean = stats.audio_codec.toUpperCase();
+          const channels = stats.audio_channels ? ` ${stats.audio_channels}ch` : "";
+          pillsHtml += `<span class="pill pill-audio"><i data-lucide="volume-2"></i> ${audioClean}${channels}</span>`;
+        }
+      } catch (err) {
+        console.warn("Error parsing stream stats for pills:", err);
+      }
+    }
+
+    // 2. Parse Catch-up (custom_properties) - Forward compatibility
+    if (stream.custom_properties) {
+      try {
+        const props = typeof stream.custom_properties === "string" ? JSON.parse(stream.custom_properties) : stream.custom_properties;
+        const hasCatchup = props.catchup || props["catchup-days"] || props["catchup-type"];
+        
+        if (hasCatchup) {
+          const daysText = props["catchup-days"] ? ` (${props["catchup-days"]}d)` : "";
+          pillsHtml += `<span class="pill pill-catchup"><i data-lucide="history"></i> Catch-up${daysText}</span>`;
+        }
+      } catch (err) {
+        console.warn("Error parsing custom properties for catchup pill:", err);
+      }
+    }
+
+    if (pillsHtml) {
+      container.innerHTML = pillsHtml;
+      lucide.createIcons();
+    } else {
+      container.innerHTML = "";
+    }
   },
 
   updateStreamCard(card, stream) {
@@ -708,6 +794,7 @@ const State = {
         <div class="select-wrapper" id="select-wrapper-${stream.channel_id}">
           <div class="spinner" style="width: 20px; height: 20px;"></div>
         </div>
+        <div class="stream-pills-container" id="pills-container-${stream.channel_id}"></div>
       </div>
 
       <div class="stream-card-clients">
