@@ -163,8 +163,8 @@ const State = {
       console.warn("Failed to load server config:", err);
     }
 
-    document.getElementById("dispatcharr-url").value = this.config.url;
-    document.getElementById("dispatcharr-api-key").value = this.config.apiKey;
+    document.getElementById("dispatcharr-url").value = "Configured securely on server";
+    document.getElementById("dispatcharr-api-key").value = "••••••••••••••••";
   },
 
   getHeaders() {
@@ -292,29 +292,17 @@ const State = {
   },
 
   async testConnection() {
-    const urlInput = document.getElementById("dispatcharr-url").value.trim();
-    const keyInput = document
-      .getElementById("dispatcharr-api-key")
-      .value.trim();
     const resultBox = document.getElementById("test-connection-result");
 
     resultBox.style.display = "block";
     resultBox.className = "connection-result";
     resultBox.textContent = "Connecting...";
 
-    let testUrl = urlInput;
-    if (testUrl.endsWith("/")) {
-      testUrl = testUrl.slice(0, -1);
-    }
-
-    const headers = { "Content-Type": "application/json" };
-    if (keyInput) {
-      headers["Authorization"] = `ApiKey ${keyInput}`;
-    }
-
     try {
-      // Hit proxy status to verify
-      const response = await fetch(`${testUrl}/proxy/ts/status`, { headers });
+      // Hit proxy status to verify through our proxy
+      const response = await fetch(`${this.config.url}/proxy/ts/status`, { 
+        headers: this.getHeaders() 
+      });
       if (response.ok) {
         resultBox.className = "connection-result success";
         resultBox.textContent =

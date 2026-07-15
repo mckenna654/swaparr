@@ -10,6 +10,8 @@ import os
 import socket
 import socketserver
 import sys
+import urllib.request
+import urllib.error
 
 PORT = 8080
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
@@ -25,14 +27,84 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.end_headers()
 
+            # Tell the frontend to use our local proxy
             config_data = {
-                "url": os.environ.get("DISPATCHARR_URL", ""),
-                "apiKey": os.environ.get("DISPATCHARR_API_KEY", ""),
+                "url": "/dispatcharr-api",
+                "apiKey": "",
             }
             self.wfile.write(json.dumps(config_data).encode("utf-8"))
             return
 
+        # Simple reverse proxy for local dev
+        if self.path.startswith("/dispatcharr-api/"):
+            self._handle_proxy()
+            return
+
         super().do_GET()
+
+    def do_POST(self):
+        if self.path.startswith("/dispatcharr-api/"):
+            self._handle_proxy()
+            return
+        
+        self.send_response(405)
+        self.end_headers()
+
+    def do_DELETE(self):
+        if self.path.startswith("/dispatcharr-api/"):
+            self._handle_proxy()
+            return
+            
+        self.send_response(405)
+        self.end_headers()
+
+    def _handle_proxy(self):
+        target_url_base = os.environ.get("DISPATCHARR_URL", "").rstrip("/")
+        api_key = os.environ.get("DISPATCHARR_API_KEY", "")
+
+        if not target_url_base:
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(b"DISPATCHARR_URL environment variable not set")
+            return
+
+        # Strip the prefix and forward
+        api_path = self.path[len("/dispatcharr-api"):]
+        target_url = f"{target_url_base}{api_path}"
+
+        headers = {
+            "Authorization": f"ApiKey {api_key}",
+        }
+        
+        # Forward Content-Type if present
+        if "Content-Type" in self.headers:
+            headers["Content-Type"] = self.headers["Content-Type"]
+
+        data = None
+        if "Content-Length" in self.headers:
+            length = int(self.headers["Content-Length"])
+            data = self.rfile.read(length)
+
+        try:
+            req = urllib.request.Request(target_url, data=data, headers=headers, method=self.command)
+            with urllib.request.urlopen(req) as response:
+                self.send_response(response.status)
+                for k, v in response.headers.items():
+                    if k.lower() not in ("transfer-encoding", "connection"):
+                        self.send_header(k, v)
+                self.end_headers()
+                self.wfile.write(response.read())
+        except urllib.error.HTTPError as e:
+            self.send_response(e.code)
+            for k, v in e.headers.items():
+                if k.lower() not in ("transfer-encoding", "connection"):
+                    self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(e.read())
+        except Exception as e:
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(str(e).encode())
 
     def log_message(self, format, *args):
         # Clean logging output
