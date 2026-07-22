@@ -53,6 +53,7 @@ docker run -d \
   -e DISPATCHARR_URL="http://192.168.1.100:9191" \
   -e DISPATCHARR_API_KEY="your_api_key_here" \
   -e NGINX_PORT="8080" \
+  -e DISABLE_PROXY="false" \
   ghcr.io/mckenna654/swaparr:latest
 ```
 
@@ -78,7 +79,10 @@ Open **http://your-server-ip:8080** on your phone or browser.
 6. *(Optional)* If you need to change the internal port (e.g. for Gluetun), add another **Variable**:
    - **Key**: `NGINX_PORT`
    - **Value**: `8080`
-7. Apply, then open `http://<unraid-ip>:8080`
+7. *(Optional)* If you are running complex network routing where the Swaparr container cannot reach Dispatcharr (like Macvlan), add another **Variable**:
+   - **Key**: `DISABLE_PROXY`
+   - **Value**: `true`
+8. Apply, then open `http://<unraid-ip>:8080`
 
 ### Option 2: Python (local development)
 

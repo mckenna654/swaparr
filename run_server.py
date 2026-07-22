@@ -27,11 +27,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.end_headers()
 
-            # Tell the frontend to use our local proxy
-            config_data = {
-                "url": "/dispatcharr-api",
-                "apiKey": "",
-            }
+            # Tell the frontend to use local proxy or direct connection
+            disable_proxy = os.environ.get("DISABLE_PROXY", "false").lower() in ("true", "1", "yes")
+            if disable_proxy:
+                config_data = {
+                    "url": os.environ.get("DISPATCHARR_URL", ""),
+                    "apiKey": os.environ.get("DISPATCHARR_API_KEY", ""),
+                }
+            else:
+                config_data = {
+                    "url": "/dispatcharr-api",
+                    "apiKey": "",
+                }
             self.wfile.write(json.dumps(config_data).encode("utf-8"))
             return
 

@@ -163,8 +163,13 @@ const State = {
       console.warn("Failed to load server config:", err);
     }
 
-    document.getElementById("dispatcharr-url").value = "Configured securely on server";
-    document.getElementById("dispatcharr-api-key").value = "••••••••••••••••";
+    if (this.config.url === "/dispatcharr-api") {
+      document.getElementById("dispatcharr-url").value = "Configured securely on server (Proxy Mode)";
+      document.getElementById("dispatcharr-api-key").value = "••••••••••••••••";
+    } else {
+      document.getElementById("dispatcharr-url").value = this.config.url;
+      document.getElementById("dispatcharr-api-key").value = this.config.apiKey ? "••••••••••••••••" : "Not Set";
+    }
   },
 
   getHeaders() {
