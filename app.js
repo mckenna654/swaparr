@@ -350,14 +350,14 @@ const State = {
   async refreshAll() {
     try {
       this.updateConnectionStatus(false, "Connecting...");
-      await Promise.all([
-        this.fetchM3uAccounts(),
-        this.fetchUsers(),
-        this.fetchChannelGroups(),
-      ]);
+      
+      // Fetch sequentially to prevent tripping strict reverse proxy rate limiters (429 errors)
+      await this.fetchM3uAccounts();
+      await this.fetchUsers();
+      await this.fetchChannelGroups();
       await this.fetchChannels();
 
-      // 2. Fetch active streams
+      // Fetch active streams
       await this.fetchActiveStreams();
 
       this.updateConnectionStatus(true);
@@ -391,6 +391,9 @@ const State = {
     const totalPages = Math.ceil((first.count || items.length) / pageSize);
 
     for (let page = 2; page <= totalPages; page++) {
+      // 50ms delay between pages to prevent reverse proxies from throwing 429 Too Many Requests
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
       const data = await this.apiFetch(
         `${path}?page=${page}&page_size=${pageSize}`,
       );
