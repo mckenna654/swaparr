@@ -17,7 +17,14 @@ A lightweight, mobile-responsive web dashboard for **Dispatcharr** (middleware f
 Swaparr brings stream monitoring and source comparison to smaller touch screens, with a compact charcoal interface and a source picker that separates browsing from switching.
 
 <div align="center">
-  <img src="screenshot.jpeg" alt="Swaparr Mobile Dashboard UI" width="800" style="border-radius: 12px; margin-top: 15px; margin-bottom: 15px;" />
+  <img src="docs/screenshots/live-card.png" alt="Compact live-stream card showing the current provider, average bitrate, and last-probed quality" width="300" />
+  <img src="docs/screenshots/source-picker-mobile.png" alt="Mobile source picker comparing providers and quality, with separate Playing and Selected indicators" width="320" />
+  <p><em>Live-stream card and mobile source picker in v1.1.5. Screenshots use example data.</em></p>
+</div>
+
+<div align="center">
+  <img src="docs/screenshots/source-picker-desktop.png" alt="Desktop source picker with quality comparisons and an explicit switch confirmation button" width="900" />
+  <p><em>The same source picker opens as a centered dialog on desktop.</em></p>
 </div>
 
 ## Features
