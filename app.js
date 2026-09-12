@@ -526,7 +526,53 @@ const State = {
   },
 
   formatStreamLabel(stream) {
-    return `${stream.name || `Stream #${stream.id}`} [${this.formatAccountName(stream.m3u_account)}]`;
+    const name = `${stream.name || `Stream #${stream.id}`} [${this.formatAccountName(stream.m3u_account)}]`;
+    const quality = this.formatStreamQuality(stream.stream_stats);
+    return `${name} — ${quality ? `Last probed: ${quality}` : "Quality unknown"}`;
+  },
+
+  formatStreamQuality(streamStats) {
+    let stats = streamStats;
+    if (typeof stats === "string") {
+      try {
+        stats = JSON.parse(stats);
+      } catch {
+        return "";
+      }
+    }
+    if (!stats || typeof stats !== "object" || Array.isArray(stats)) return "";
+
+    const details = [];
+    const resolution = String(stats.resolution || "").trim();
+    const dimensions = resolution.match(/^\d+\s*[x×]\s*(\d+)$/i);
+    const heightOnly = resolution.match(/^(\d+)([pi])?$/i);
+    const height = Number(dimensions?.[1] || heightOnly?.[1]);
+    if (height > 0) {
+      details.push(`${height}${heightOnly?.[2]?.toLowerCase() || "p"}`);
+    }
+
+    const fps = Number(stats.source_fps);
+    if (Number.isFinite(fps) && fps > 0) {
+      details.push(`${Number(fps.toFixed(2))} fps`);
+    }
+
+    if (typeof stats.video_codec === "string" && stats.video_codec.trim()) {
+      const codec = stats.video_codec.trim().toUpperCase();
+      details.push(/^(AVC1|AVC|H264|H\.264)$/.test(codec) ? "H.264"
+        : /^(HEVC|H265|H\.265|HEV1|HVC1)$/.test(codec) ? "HEVC" : codec);
+    }
+
+    return details.join(" · ");
+  },
+
+  populateStreamOptions(select, streams, activeStreamId) {
+    streams.forEach((stream) => {
+      const option = document.createElement("option");
+      option.value = String(stream.id);
+      option.textContent = this.formatStreamLabel(stream);
+      option.selected = activeStreamId != null && String(stream.id) === String(activeStreamId);
+      select.appendChild(option);
+    });
   },
 
   formatAccountName(m3uAccount) {
@@ -543,13 +589,7 @@ const State = {
   buildStreamSelect(streams, activeStreamId, channelUuid, channelName) {
     const select = document.createElement("select");
     select.className = "override-select";
-    select.innerHTML = streams
-      .map((s) => {
-        const isSelected =
-          activeStreamId && String(s.id) === String(activeStreamId);
-        return `<option value="${s.id}" ${isSelected ? "selected" : ""}>${this.formatStreamLabel(s)}</option>`;
-      })
-      .join("");
+    this.populateStreamOptions(select, streams, activeStreamId);
 
     select.addEventListener("change", (e) => {
       const streamId = e.target.value;
@@ -1042,14 +1082,7 @@ const State = {
         const select = document.createElement("select");
         select.className = "override-select";
         select.style.cssText = "padding: 4px 28px 4px 8px; font-size: 0.8rem;";
-        select.innerHTML = streams
-          .map((s) => {
-            const isSelected = activeStreamId
-              ? String(s.id) === String(activeStreamId)
-              : false;
-            return `<option value="${s.id}" ${isSelected ? "selected" : ""}>${this.formatStreamLabel(s)}</option>`;
-          })
-          .join("");
+        this.populateStreamOptions(select, streams, activeStreamId);
 
         // On switch
         select.addEventListener("change", async (e) => {

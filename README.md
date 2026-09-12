@@ -26,6 +26,7 @@ Swaparr solves the challenge of managing and overriding streams from mobile web 
 
 -   📺 **Active Stream Monitoring**: Displays channels currently being streamed, uptime, bandwidth, data transferred, and active client counts.
 -   🔄 **Stream Source Dropdown**: Pick any configured backup stream for active channels from a mobile-friendly dropdown — no more cycling through sources one at a time.
+-   📊 **Compare Source Quality**: Both stream selectors show each source's last-probed resolution, frame rate, and video codec before you switch. These are saved Dispatcharr probe results, not live measurements; sources without usable stats show "Quality unknown".
 -   ⏹️ **Stream Lifecycle Controls**: Stop active streams (terminate and release client slots) directly from your phone.
 -   🔍 **Channels Browser**: Search all configured channels and pre-configure/override their stream sources even when they are offline.
 -   👥 **Client Detail Inspector**: Expand any active channel card to see exactly who (IP, User-Agent, transfer speed) is watching.
