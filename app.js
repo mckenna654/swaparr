@@ -83,12 +83,13 @@ const Toast = {
     toast.innerHTML = `
       <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; font-family: var(--font-display);">
         <i data-lucide="${icon}" style="width: 16px; height: 16px; color: ${borderClr}"></i>
-        <span>${title}</span>
+        <span></span>
       </div>
       <div style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-sans); padding-left: 24px;">
-        ${message}
       </div>
     `;
+    toast.querySelector("span").textContent = title;
+    toast.lastElementChild.textContent = message;
 
     this.container.appendChild(toast);
     lucide.createIcons({ attrs: { class: "btn-icon" } });
@@ -350,6 +351,8 @@ const State = {
   async refreshAll() {
     try {
       this.updateConnectionStatus(false, "Connecting...");
+      this.channelStreamsCache = {};
+      document.querySelectorAll(".select-wrapper").forEach(wrapper => delete wrapper.dataset.streamId);
       
       // Fetch sequentially to prevent tripping strict reverse proxy rate limiters (429 errors)
       await this.fetchM3uAccounts();
@@ -359,9 +362,10 @@ const State = {
 
       // Fetch active streams
       await this.fetchActiveStreams();
+      this.renderChannelsExplorer();
 
       this.updateConnectionStatus(true);
-      this.startAutoRefresh();
+      if (document.getElementById("auto-refresh-check").checked) this.startAutoRefresh();
     } catch (err) {
       console.error(err);
       this.updateConnectionStatus(false, "API Error");
@@ -586,138 +590,45 @@ const State = {
     return "Unknown Source";
   },
 
-  buildStreamSelect(streams, activeStreamId, channelUuid, channelName) {
-    const select = document.createElement("select");
-    select.className = "override-select";
-    this.populateStreamOptions(select, streams, activeStreamId);
-
-    select.addEventListener("change", (e) => {
-      const streamId = e.target.value;
-      const streamName = e.target.options[e.target.selectedIndex].text;
-      select.disabled = true;
-      this.switchStream(channelUuid, streamId, channelName, streamName).finally(
-        () => {
-          select.disabled = false;
-        },
-      );
-    });
-
-    return select;
-  },
-
-  injectStreamDropdown(
-    wrapper,
-    streams,
-    activeStreamId,
-    channelUuid,
-    channelName,
-  ) {
+  renderSourceControl(wrapper, streams, activeStreamId, channelUuid, channelName) {
     if (!wrapper) return;
-
-    if (streams.length === 0) {
-      wrapper.innerHTML = `<span class="select-placeholder">No streams configured</span>`;
-      return;
-    }
-
-    const select = this.buildStreamSelect(
-      streams,
-      activeStreamId,
-      channelUuid,
-      channelName,
-    );
-    wrapper.innerHTML = "";
-    wrapper.appendChild(select);
-
-    const arrow = document.createElement("div");
-    arrow.className = "select-arrow";
-    arrow.innerHTML = `<i data-lucide="chevron-down" style="width: 16px; height: 16px;"></i>`;
-    wrapper.appendChild(arrow);
-    lucide.createIcons();
-
-    // Render initial pills
-    this.renderStreamPills(channelUuid, select.value, streams);
-
-    // Update pills on select change (in addition to the API call)
-    select.addEventListener("change", () => {
-      this.renderStreamPills(channelUuid, select.value, streams);
-    });
+    const current = streams.find(source => String(source.id) === String(activeStreamId));
+    const summary = SourcePicker.element("div", "current-source");
+    summary.append(SourcePicker.element("strong", "current-provider",
+      current ? this.formatAccountName(current.m3u_account) : "Source unavailable"),
+      SourcePicker.element("span", "current-source-name", current?.name || "Refresh or open sources to check."));
+    const button = SourcePicker.element("button", "btn source-change-btn", "Change source");
+    button.type = "button";
+    button.setAttribute("aria-haspopup", "dialog");
+    button.addEventListener("click", () => SourcePicker.open(this.channelsByUuid[channelUuid], channelName, channelUuid));
+    wrapper.replaceChildren(summary);
+    wrapper.parentElement.querySelector(".source-change-btn")?.remove();
+    wrapper.parentElement.append(button);
+    this.renderStreamPills(channelUuid, activeStreamId, streams);
   },
 
   renderStreamPills(channelUuid, selectedStreamId, streams) {
     const container = document.getElementById(`pills-container-${channelUuid}`);
     if (!container) return;
-
-    const stream = streams.find((s) => String(s.id) === String(selectedStreamId));
-    if (!stream) {
-      container.innerHTML = "";
-      return;
-    }
-
-    let pillsHtml = "";
-
-    // 1. Parse Video Quality (stream_stats)
-    if (stream.stream_stats) {
-      try {
-        const stats = typeof stream.stream_stats === "string" ? JSON.parse(stream.stream_stats) : stream.stream_stats;
-        
-        // Resolution Pill
-        if (stats.resolution) {
-          const parts = String(stats.resolution).toLowerCase().split('x');
-          const height = parts.length === 2 ? parseInt(parts[1], 10) : parseInt(stats.resolution, 10);
-          
-          if (!isNaN(height)) {
-            const resLabel = height >= 2160 ? "4K" : height >= 1080 ? "FHD" : height >= 720 ? "HD" : "SD";
-            pillsHtml += `<span class="pill pill-resolution">${resLabel} (${height}p)</span>`;
-          } else {
-            pillsHtml += `<span class="pill pill-resolution">${stats.resolution}</span>`;
-          }
-        }
-        
-        // Framerate Pill
-        if (stats.source_fps) {
-          const fps = parseFloat(stats.source_fps);
-          if (!isNaN(fps)) {
-            pillsHtml += `<span class="pill pill-fps">${Math.round(fps)} fps</span>`;
-          }
-        }
-        
-        // Video Codec Pill
-        if (stats.video_codec) {
-          const codecClean = stats.video_codec.toUpperCase().replace(/AVC1/g, "H.264").replace(/HEVC|H265/g, "HEVC");
-          pillsHtml += `<span class="pill pill-codec"><i data-lucide="video"></i> ${codecClean}</span>`;
-        }
-        
-        // Audio Codec Pill
-        if (stats.audio_codec) {
-          const audioClean = stats.audio_codec.toUpperCase();
-          const channels = stats.audio_channels ? ` ${stats.audio_channels}ch` : "";
-          pillsHtml += `<span class="pill pill-audio"><i data-lucide="volume-2"></i> ${audioClean}${channels}</span>`;
-        }
-      } catch (err) {
-        console.warn("Error parsing stream stats for pills:", err);
+    const stream = streams.find(source => String(source.id) === String(selectedStreamId));
+    const quality = this.formatStreamQuality(stream?.stream_stats);
+    container.replaceChildren(SourcePicker.element("span", "quality-caption", "Last-probed quality"));
+    (quality ? quality.split(" · ") : ["Quality unknown"]).forEach(value => {
+      container.append(SourcePicker.element("span", "quality-tag", value));
+    });
+    if (!stream) return;
+    try {
+      const stats = typeof stream.stream_stats === "string" ? JSON.parse(stream.stream_stats) : stream.stream_stats;
+      if (typeof stats?.audio_codec === "string" && stats.audio_codec.trim()) {
+        container.append(SourcePicker.element("span", "quality-tag",
+          `${stats.audio_codec.toUpperCase()}${stats.audio_channels ? ` · ${stats.audio_channels} ch` : ""}`));
       }
-    }
-
-    // 2. Parse Catch-up (custom_properties) - Forward compatibility
-    if (stream.custom_properties) {
-      try {
-        const props = typeof stream.custom_properties === "string" ? JSON.parse(stream.custom_properties) : stream.custom_properties;
-        const hasCatchup = props.catchup || props["catchup-days"] || props["catchup-type"];
-        
-        if (hasCatchup) {
-          const daysText = props["catchup-days"] ? ` (${props["catchup-days"]}d)` : "";
-          pillsHtml += `<span class="pill pill-catchup"><i data-lucide="history"></i> Catch-up${daysText}</span>`;
-        }
-      } catch (err) {
-        console.warn("Error parsing custom properties for catchup pill:", err);
+      const props = typeof stream.custom_properties === "string" ? JSON.parse(stream.custom_properties) : stream.custom_properties;
+      if (props && (props.catchup || props["catchup-days"] || props["catchup-type"])) {
+        container.append(SourcePicker.element("span", "quality-tag", "Catch-up"));
       }
-    }
-
-    if (pillsHtml) {
-      container.innerHTML = pillsHtml;
-      lucide.createIcons();
-    } else {
-      container.innerHTML = "";
+    } catch {
+      // Partial or malformed probe data must not prevent source selection.
     }
   },
 
@@ -759,25 +670,13 @@ const State = {
       toggleLabel.textContent = `Connected Clients (${stream.client_count || 0})`;
     }
 
-    const select = card.querySelector(".override-select");
-    if (
-      select &&
-      stream.stream_id &&
-      select.value !== String(stream.stream_id)
-    ) {
-      select.value = String(stream.stream_id);
-    }
-
     const wrapper = card.querySelector(".select-wrapper");
-    if (channelDbId && wrapper && !wrapper.querySelector(".override-select")) {
+    if (channelDbId && wrapper && wrapper.dataset.streamId !== String(stream.stream_id)) {
+      wrapper.dataset.streamId = String(stream.stream_id);
       this.fetchStreamsForChannel(channelDbId).then((streams) => {
-        this.injectStreamDropdown(
-          wrapper,
-          streams,
-          stream.stream_id,
-          stream.channel_id,
-          channelName,
-        );
+        if (card.isConnected && wrapper.dataset.streamId === String(stream.stream_id)) {
+          this.renderSourceControl(wrapper, streams, stream.stream_id, stream.channel_id, channelName);
+        }
       });
     }
   },
@@ -824,7 +723,7 @@ const State = {
           <span class="spec-value">${this.formatDuration(stream.uptime)}</span>
         </div>
         <div class="spec-item">
-          <span class="spec-label">Bitrate</span>
+          <span class="spec-label">Average bitrate</span>
           <span class="spec-value">${this.formatBitrate(stream.total_bytes, stream.uptime)}</span>
         </div>
         <div class="spec-item">
@@ -838,7 +737,7 @@ const State = {
       </div>
 
       <div class="stream-override-box stream-override-primary">
-        <label class="override-label"><i data-lucide="list"></i> Switch Stream Source</label>
+        <span class="override-label">Current source</span>
         <div class="select-wrapper" id="select-wrapper-${stream.channel_id}">
           <div class="spinner" style="width: 20px; height: 20px;"></div>
         </div>
@@ -846,10 +745,10 @@ const State = {
       </div>
 
       <div class="stream-card-clients">
-        <div class="clients-toggle" id="toggle-${stream.channel_id}">
+        <button type="button" class="clients-toggle" id="toggle-${stream.channel_id}" aria-expanded="false" aria-controls="clients-list-${stream.channel_id}">
           <span>Connected Clients (${stream.client_count || 0})</span>
           <i data-lucide="chevron-down"></i>
-        </div>
+        </button>
         <div class="clients-list-container" id="clients-list-${stream.channel_id}">
           <div class="loading-state" style="padding: 10px;"><div class="spinner" style="width: 16px; height: 16px;"></div></div>
         </div>
@@ -864,8 +763,9 @@ const State = {
 
     const wrapper = card.querySelector(".select-wrapper");
     if (channelDbId) {
+      wrapper.dataset.streamId = String(stream.stream_id);
       this.fetchStreamsForChannel(channelDbId).then((streams) => {
-        this.injectStreamDropdown(
+        this.renderSourceControl(
           wrapper,
           streams,
           stream.stream_id,
@@ -887,6 +787,7 @@ const State = {
 
     toggle.addEventListener("click", async () => {
       const isExpanded = toggle.classList.toggle("expanded");
+      toggle.setAttribute("aria-expanded", String(isExpanded));
       listContainer.classList.toggle("show");
 
       if (isExpanded) {
@@ -938,11 +839,7 @@ const State = {
   async renderActiveStreams() {
     const grid = document.getElementById("active-streams-grid");
 
-    // Invalidate streams cache for active channels to ensure dropdowns show current state
-    this.activeStreams.forEach((s) => {
-      const dbId = this.channelsByUuid[s.channel_id];
-      if (dbId) delete this.channelStreamsCache[dbId];
-    });
+    SourcePicker.sync();
 
     if (this.activeStreams.length === 0) {
       grid.innerHTML = `
@@ -982,10 +879,6 @@ const State = {
   },
 
   renderChannelsExplorer() {
-    // Invalidate streams cache so dropdowns show fresh data
-    Object.keys(this.channelStreamsCache).forEach((key) => {
-      delete this.channelStreamsCache[key];
-    });
 
     const tbody = document.getElementById("channels-table-body");
     const query = document
@@ -999,9 +892,7 @@ const State = {
     const filtered = this.channels.filter((ch) => {
       const nameMatch = ch.name && ch.name.toLowerCase().includes(query);
       const groupMatch =
-        ch.channel_group &&
-        ch.channel_group.name &&
-        ch.channel_group.name.toLowerCase().includes(query);
+        (this.channelGroupsMap[ch.channel_group_id] || ch.channel_group?.name || "").toLowerCase().includes(query);
       return nameMatch || groupMatch;
     });
 
@@ -1078,52 +969,11 @@ const State = {
           streams[0];
         sourceCell.innerHTML = `<span style="font-weight: 500;">${currentStreamObj.name}</span><br><span style="font-size: 0.75rem; color: var(--text-muted);">${this.formatAccountName(currentStreamObj.m3u_account)}</span>`;
 
-        // Create dropdown selector in table
-        const select = document.createElement("select");
-        select.className = "override-select";
-        select.style.cssText = "padding: 4px 28px 4px 8px; font-size: 0.8rem;";
-        this.populateStreamOptions(select, streams, activeStreamId);
-
-        // On switch
-        select.addEventListener("change", async (e) => {
-          const streamId = e.target.value;
-          const streamName = e.target.options[e.target.selectedIndex].text;
-
-          // Look up current active stream (not stale closure from render time)
-          const currentActiveStream = this.activeStreams.find(
-            (s) => this.channelsByUuid[s.channel_id] === ch.id,
-          );
-
-          if (currentActiveStream) {
-            // Live switch since it is currently streaming!
-            await this.switchStream(
-              currentActiveStream.channel_id,
-              streamId,
-              ch.name,
-              streamName,
-            );
-          } else {
-            // Channel is NOT currently streaming.
-            // In Dispatcharr, to override the default stream profile or playlist stream, we can perform a profile switch or priority change.
-            // Wait, we can test setting the stream profile, or let the user know this is used when stream starts.
-            // But wait, the switch_stream endpoint ONLY works when a channel is actively running (since it replaces the stream URL in the live thread).
-            // Let's show a modal/toast informing them.
-            Toast.show(
-              "Channel Offline",
-              `Stream selected for "${ch.name}". It will be applied as soon as the channel starts playing.`,
-              "warning",
-            );
-          }
-        });
-
-        actionsCell.innerHTML = "";
-        actionsCell.appendChild(select);
-
-        const arrow = document.createElement("div");
-        arrow.className = "select-arrow";
-        arrow.style.right = "8px";
-        arrow.innerHTML = `<i data-lucide="chevron-down" style="width: 12px; height: 12px;"></i>`;
-        actionsCell.appendChild(arrow);
+        const button = SourcePicker.element("button", "btn btn-secondary source-browse-btn", "Compare sources");
+        button.type = "button";
+        button.setAttribute("aria-haspopup", "dialog");
+        button.addEventListener("click", () => SourcePicker.open(ch.id, ch.name, ch.uuid));
+        actionsCell.replaceChildren(button);
 
         lucide.createIcons();
       });

@@ -12,11 +12,9 @@
 
 </div>
 
-A beautiful, lightweight, and fully mobile-responsive web dashboard for **Dispatcharr** (middleware for managing IPTV streams, EPG, and proxy connections).
+A lightweight, mobile-responsive web dashboard for **Dispatcharr** (middleware for managing IPTV streams, EPG, and proxy connections).
 
-> **Note**: This application is proudly **"vibe coded"** 🌊✨ - designed with a focus on aesthetics, smooth interactions, and an intuitive feel over strict architectural rigidity. It was built using modern AI coding workflows to deliver a highly polished user experience rapidly.
-
-Swaparr solves the challenge of managing and overriding streams from mobile web browsers by providing a clean, glassmorphic layout tailored for smaller touch screens.
+Swaparr brings stream monitoring and source comparison to smaller touch screens, with a compact charcoal interface and a source picker that separates browsing from switching.
 
 <div align="center">
   <img src="screenshot.jpeg" alt="Swaparr Mobile Dashboard UI" width="800" style="border-radius: 12px; margin-top: 15px; margin-bottom: 15px;" />
@@ -25,10 +23,10 @@ Swaparr solves the challenge of managing and overriding streams from mobile web 
 ## Features
 
 -   📺 **Active Stream Monitoring**: Displays channels currently being streamed, uptime, bandwidth, data transferred, and active client counts.
--   🔄 **Stream Source Dropdown**: Pick any configured backup stream for active channels from a mobile-friendly dropdown — no more cycling through sources one at a time.
--   📊 **Compare Source Quality**: Both stream selectors show each source's last-probed resolution, frame rate, and video codec before you switch. These are saved Dispatcharr probe results, not live measurements; sources without usable stats show "Quality unknown".
+-   🔄 **Stream Source Picker**: Compare configured sources in a mobile bottom sheet or desktop dialog. Selecting a source does not change playback until you confirm; the currently playing source stays clearly marked.
+-   📊 **Compare Source Quality**: The picker shows each source's last-probed resolution, frame rate, and video codec before you switch. These are saved Dispatcharr probe results, not live measurements; sources without usable stats show "Quality unknown".
 -   ⏹️ **Stream Lifecycle Controls**: Stop active streams (terminate and release client slots) directly from your phone.
--   🔍 **Channels Browser**: Search all configured channels and pre-configure/override their stream sources even when they are offline.
+-   🔍 **Channels Browser**: Search channels by name or group and compare their sources. Offline sources can be inspected; switching becomes available during playback.
 -   👥 **Client Detail Inspector**: Expand any active channel card to see exactly who (IP, User-Agent, transfer speed) is watching.
 -   ⚙️ **Server-Side Configuration**: Securely provide your API key via environment variables so you never have to re-type it on different devices.
 -   📱 **Native App Experience**: Full PWA support for Android ("Install App") and iOS ("Add to Home Screen") for a beautiful, fullscreen standalone dashboard.
@@ -124,9 +122,14 @@ Swaparr sends requests directly to Dispatcharr's backend API endpoints:
 ## Styling & Theme
 
 Swaparr uses high-performance, modern native web styling:
--   **Typography**: *Outfit* for headers, *Plus Jakarta Sans* for body copy.
--   **Theme**: Deep futuristic navy-blue background with glowing cyan, purple, and pink accents.
+-   **Typography**: Native system fonts for clear, fast-loading text.
+-   **Theme**: Charcoal surfaces, subtle slate borders, and restrained teal actions.
 -   **Responsiveness**: Uses mobile-first layouts that automatically scale up beautifully to tablets and desktop monitors.
+
+## Development checks
+
+Run the formatting tests with `node --test tests/stream-quality.test.cjs`.
+With Playwright installed, run `node tests/source-picker.browser.cjs` for mocked browser checks of source selection, errors, keyboard access, and mobile layouts. The test uses no live Dispatcharr server. Set `CHROME_PATH` to use an installed Chrome executable; `PLAYWRIGHT_MODULE`, `LUCIDE_SCRIPT`, and `SCREENSHOT_DIR` are optional overrides for local tooling and screenshot output.
 
 ## Docker Image
 

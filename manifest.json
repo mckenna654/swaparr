@@ -5,8 +5,8 @@
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0f172a",
-  "theme_color": "#06b6d4",
+  "background_color": "#171b1e",
+  "theme_color": "#171b1e",
   "icons": [
     {
       "src": "Swaparr.png",
