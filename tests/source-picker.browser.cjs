@@ -52,6 +52,19 @@ fs.mkdirSync(screenshots, { recursive: true });
       return route.fulfill({ status: 404, body: "Not found" });
     });
     await page.goto("http://swaparr.test/");
+    // Public documentation screenshots must obscure channel/provider identities,
+    // including the background behind the modal. This style exists only in tests.
+    await page.addStyleTag({ content: `
+      .stream-title-area h3, .stream-group-badge, .current-provider,
+      .current-source-name, .picker-channel, .source-provider, .source-name,
+      .channel-name-cell, .channel-group-cell, .channel-stream-cell, .channel-no-badge {
+        filter: blur(8px) !important;
+      }
+      .picker-confirm {
+        color: transparent !important;
+        text-shadow: 0 0 9px #14201d !important;
+      }
+    ` });
     const change = page.getByRole("button", { name: "Change source", exact: true });
     await change.waitFor();
     await page.evaluate(() => State.stopAutoRefresh());
