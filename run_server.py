@@ -57,6 +57,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_response(405)
         self.end_headers()
 
+    def do_PATCH(self):
+        if self.path.startswith("/dispatcharr-api/"):
+            self._handle_proxy()
+            return
+        self.send_response(405)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_DELETE(self):
         if self.path.startswith("/dispatcharr-api/"):
             self._handle_proxy()
@@ -108,6 +116,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     self.send_header(k, v)
             self.end_headers()
             self.wfile.write(e.read())
+            e.close()
         except Exception as e:
             self.send_response(500)
             self.end_headers()

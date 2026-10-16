@@ -31,6 +31,7 @@ Swaparr brings stream monitoring and source comparison to smaller touch screens,
 
 -   📺 **Active Stream Monitoring**: Displays channels currently being streamed, uptime, bandwidth, data transferred, and active client counts.
 -   🔄 **Stream Source Picker**: Compare configured sources in a mobile bottom sheet or desktop dialog. Selecting a source does not change playback until you confirm; the currently playing source stays clearly marked.
+-   ↕️ **Saved Source Priority**: Choose **Edit source order**, drag sources or use the move-up/down buttons, then **Save order** to persist the priority in Dispatcharr. Works for offline channels too, without switching current playback. Cancel discards your edits.
 -   📊 **Compare Source Quality**: The picker shows each source's last-probed resolution, frame rate, and video codec before you switch. These are saved Dispatcharr probe results, not live measurements; sources without usable stats show "Quality unknown".
 -   ⏹️ **Stream Lifecycle Controls**: Stop active streams (terminate and release client slots) directly from your phone.
 -   🔍 **Channels Browser**: Search channels by name or group and compare their sources. Offline sources can be inspected; switching becomes available during playback.
@@ -121,10 +122,26 @@ Open **http://your-server-ip:8080** on your phone or browser.
 
 ## How Override Works Internally
 
+### Set source priority
+
+Open **Change source** on a live card or **Compare sources** in the channel browser, then choose **Edit source order**. Position 1 is the highest priority. Use the drag handles or arrow buttons to rearrange sources and choose **Save order**. **Cancel ordering** restores the saved order without writing changes.
+
+Saving updates the channel's ordered source list in Dispatcharr; it does not call the live-stream switch endpoint. The picker checks for changes made elsewhere before saving and reads the order back to confirm it. If the list changed, choose **Reload saved order** and arrange it again. This is a pre-save check, not an atomic lock against simultaneous edits.
+
+The Dispatcharr API key must have permission to update channels. Dispatcharr's own automatic channel-sync rules may affect later ordering. Saving priority also works when the channel is offline.
+
+<div align="center">
+  <img src="docs/screenshots/source-order-mobile.png" alt="Source priority editor with numbered positions, drag handles, move buttons, and a separate Save order action" width="320" />
+  <p><em>Source ordering in v1.1.6. Channel and provider names are blurred.</em></p>
+</div>
+
+### API endpoints
+
 Swaparr sends requests directly to Dispatcharr's backend API endpoints:
 -   `/proxy/ts/status` — Scans Redis metadata keys to retrieve current stream states.
 -   `/proxy/ts/change_stream/<channel_uuid>` — Dynamically re-routes the stream thread to the selected `stream_id` (IPTV playlist link) without interrupting client connections.
 -   `/proxy/ts/stop/<channel_uuid>` — Disconnects the clients and stops active streaming buffers to prevent provider ban/over-use.
+-   `PATCH /api/channels/channels/<channel_id>/` — Saves the complete ordered `streams` ID list as source priority. Both Docker and Python proxy modes support this operation.
 
 ## Styling & Theme
 
@@ -136,7 +153,8 @@ Swaparr uses high-performance, modern native web styling:
 ## Development checks
 
 Run the formatting tests with `node --test tests/stream-quality.test.cjs`.
-With Playwright installed, run `node tests/source-picker.browser.cjs` for mocked browser checks of source selection, errors, keyboard access, and mobile layouts. The test uses no live Dispatcharr server. Set `CHROME_PATH` to use an installed Chrome executable; `PLAYWRIGHT_MODULE`, `LUCIDE_SCRIPT`, and `SCREENSHOT_DIR` are optional overrides for local tooling and screenshot output.
+Run the Python proxy tests with `python3 -m unittest discover -s tests -p test_proxy.py -v` (uses local loopback servers).
+With Playwright installed, run `node tests/source-picker.browser.cjs` for mocked browser checks of source selection, saved priority, conflict detection, error recovery, mouse/touch dragging, keyboard access, and mobile layouts. The test uses no live Dispatcharr server. Set `CHROME_PATH` to use an installed Chrome executable; `PLAYWRIGHT_MODULE`, `LUCIDE_SCRIPT`, and `SCREENSHOT_DIR` are optional overrides for local tooling and screenshot output. Documentation screenshots automatically blur channel and provider names.
 
 ## Docker Image
 
