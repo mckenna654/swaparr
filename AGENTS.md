@@ -7,8 +7,10 @@ Dispatcharr API. Ships as `ghcr.io/mckenna654/swaparr`. Global rules: `mckenna65
 ## Layout
 - `nginx.conf.template` plus `40-generate-config.sh` render nginx config from env at container start.
 - `run_server.py` is a local dev server and proxy (port 8080) for working without Docker.
-- `tests/`: `stream-quality.test.cjs` (`node --test`), `test_proxy.py` (`python -m unittest`),
-  `source-picker.browser.cjs` (browser check).
+- `tests/`: `stream-quality.test.cjs` and `escaping.test.cjs` (`node --test`), `test_proxy.py`
+  (`python -m unittest`), `source-picker.browser.cjs` (browser check).
+- API strings (channel, group, stream, provider, client) are set with `textContent`, never
+  interpolated into `innerHTML`. Use `SourcePicker.element()` or the `build*` helpers in `app.js`.
 
 ## Commands
 - Dev: `python run_server.py`, or `docker compose up --build`
