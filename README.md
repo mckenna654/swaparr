@@ -19,7 +19,7 @@ Swaparr brings stream monitoring and source comparison to smaller touch screens,
 <div align="center">
   <img src="docs/screenshots/live-card.png" alt="Compact live-stream card showing the current provider, average bitrate, and last-probed quality" width="300" />
   <img src="docs/screenshots/source-picker-mobile.png" alt="Mobile source picker comparing providers and quality, with separate Playing and Selected indicators" width="320" />
-  <p><em>Live-stream card and mobile source picker in v1.1.5. Screenshots use example data.</em></p>
+  <p><em>Live-stream card and mobile source picker. Screenshots use example data; channel and provider names are blurred.</em></p>
 </div>
 
 <div align="center">
@@ -132,7 +132,7 @@ The Dispatcharr API key must have permission to update channels. Dispatcharr's o
 
 <div align="center">
   <img src="docs/screenshots/source-order-mobile.png" alt="Source priority editor with numbered positions, drag handles, move buttons, and a separate Save order action" width="320" />
-  <p><em>Source ordering in v1.1.6. Channel and provider names are blurred.</em></p>
+  <p><em>Source ordering. Channel and provider names are blurred.</em></p>
 </div>
 
 ### API endpoints

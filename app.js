@@ -10,32 +10,7 @@ const Toast = {
   init() {
     this.container = document.createElement("div");
     this.container.id = "toast-container";
-    this.container.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      max-width: 350px;
-      width: 100%;
-    `;
     document.body.appendChild(this.container);
-
-    // Inject mobile media query for toasts
-    const style = document.createElement("style");
-    style.innerHTML = `
-      @media (max-width: 640px) {
-        #toast-container {
-          right: 12px !important;
-          left: 12px !important;
-          bottom: 12px !important;
-          max-width: none !important;
-        }
-      }
-    `;
-    document.head.appendChild(style);
   },
 
   show(title, message, type = "info") {
@@ -44,66 +19,28 @@ const Toast = {
     const toast = document.createElement("div");
     toast.className = `toast toast-${type}`;
 
-    let borderClr = "var(--accent-blue)";
-    let bgClr = "rgba(18, 24, 41, 0.95)";
-    let textClr = "#ffffff";
-    let icon = "info";
-
-    if (type === "success") {
-      borderClr = "var(--accent-green)";
-      icon = "check-circle";
-    } else if (type === "error") {
-      borderClr = "var(--accent-red)";
-      icon = "alert-triangle";
-    } else if (type === "warning") {
-      borderClr = "var(--accent-warning)";
-      icon = "alert-circle";
-    }
-
-    toast.style.cssText = `
-      background: ${bgClr};
-      color: ${textClr};
-      border-left: 4px solid ${borderClr};
-      border-radius: 8px;
-      padding: 12px 16px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-      border-top: 1px solid rgba(255,255,255,0.05);
-      border-bottom: 1px solid rgba(0,0,0,0.2);
-      border-right: 1px solid rgba(255,255,255,0.05);
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      opacity: 0;
-      transform: translateY(20px);
-      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      backdrop-filter: blur(10px);
-      position: relative;
-    `;
-
-    toast.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; font-family: var(--font-display);">
-        <i data-lucide="${icon}" style="width: 16px; height: 16px; color: ${borderClr}"></i>
-        <span></span>
-      </div>
-      <div style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-sans); padding-left: 24px;">
-      </div>
-    `;
-    toast.querySelector("span").textContent = title;
-    toast.lastElementChild.textContent = message;
+    const icons = { info: "info", success: "check-circle", error: "alert-triangle", warning: "alert-circle" };
+    const heading = document.createElement("div");
+    heading.className = "toast-title";
+    const icon = document.createElement("i");
+    icon.setAttribute("data-lucide", icons[type] || icons.info);
+    const titleText = document.createElement("span");
+    titleText.textContent = title;
+    heading.append(icon, titleText);
+    const body = document.createElement("div");
+    body.className = "toast-body";
+    body.textContent = message;
+    toast.append(heading, body);
 
     this.container.appendChild(toast);
-    lucide.createIcons({ attrs: { class: "btn-icon" } });
+    lucide.createIcons();
 
     // Animate in
-    setTimeout(() => {
-      toast.style.opacity = "1";
-      toast.style.transform = "translateY(0)";
-    }, 10);
+    requestAnimationFrame(() => toast.classList.add("is-visible"));
 
     // Auto remove
     setTimeout(() => {
-      toast.style.opacity = "0";
-      toast.style.transform = "translateY(-20px)";
+      toast.classList.remove("is-visible");
       setTimeout(() => {
         toast.remove();
       }, 300);
@@ -165,11 +102,11 @@ const State = {
     }
 
     if (this.config.url === "/dispatcharr-api") {
-      document.getElementById("dispatcharr-url").value = "Configured securely on server (Proxy Mode)";
+      document.getElementById("dispatcharr-url").value = "Set on the server (proxy mode)";
       document.getElementById("dispatcharr-api-key").value = "••••••••••••••••";
     } else {
       document.getElementById("dispatcharr-url").value = this.config.url;
-      document.getElementById("dispatcharr-api-key").value = this.config.apiKey ? "••••••••••••••••" : "Not Set";
+      document.getElementById("dispatcharr-api-key").value = this.config.apiKey ? "••••••••••••••••" : "Not set";
     }
   },
 
@@ -209,10 +146,10 @@ const State = {
 
     if (connected) {
       badge.className = "status-badge status-connected";
-      statusText.textContent = "API Connected";
+      statusText.textContent = "Connected";
     } else {
       badge.className = "status-badge status-disconnected";
-      statusText.textContent = message || "API Disconnected";
+      statusText.textContent = message || "Disconnected";
     }
   },
 
@@ -260,7 +197,7 @@ const State = {
       this.refreshAll();
       Toast.show(
         "Refreshing",
-        "Fetching fresh data from Dispatcharr...",
+        "Fetching from Dispatcharr",
         "info",
       );
     });
@@ -303,7 +240,7 @@ const State = {
 
     resultBox.style.display = "block";
     resultBox.className = "connection-result";
-    resultBox.textContent = "Connecting...";
+    resultBox.textContent = "Connecting…";
 
     try {
       // Hit proxy status to verify through our proxy
@@ -313,17 +250,17 @@ const State = {
       if (response.ok) {
         resultBox.className = "connection-result success";
         resultBox.textContent =
-          "Connection Successful! Dispatcharr API is responsive.";
+          "Connected. Dispatcharr answered.";
         this.updateConnectionStatus(true);
       } else {
         resultBox.className = "connection-result error";
-        resultBox.textContent = `Error: HTTP ${response.status} - ${response.statusText}. Please verify the URL and API Key.`;
+        resultBox.textContent = `HTTP ${response.status} ${response.statusText}. Check the URL and API key.`;
         this.updateConnectionStatus(false, `HTTP ${response.status}`);
       }
     } catch (err) {
       resultBox.className = "connection-result error";
-      resultBox.textContent = `Failed to connect: ${err.message}. Ensure Dispatcharr is running and CORS is enabled.`;
-      this.updateConnectionStatus(false, "Network Error");
+      resultBox.textContent = `Could not connect: ${err.message}. Check that Dispatcharr is running and reachable.`;
+      this.updateConnectionStatus(false, "Network error");
     }
   },
 
@@ -369,9 +306,9 @@ const State = {
       if (document.getElementById("auto-refresh-check").checked) this.startAutoRefresh();
     } catch (err) {
       console.error(err);
-      this.updateConnectionStatus(false, "API Error");
+      this.updateConnectionStatus(false, "Error");
       Toast.show(
-        "Connection Failed",
+        "Connection failed",
         `Could not fetch data from Dispatcharr: ${err.message}`,
         "error",
       );
@@ -384,7 +321,7 @@ const State = {
       this.updateConnectionStatus(true);
     } catch (err) {
       console.error("Auto-refresh failed:", err);
-      this.updateConnectionStatus(false, "API Stale");
+      this.updateConnectionStatus(false, "Not responding");
     }
   },
 
@@ -645,9 +582,9 @@ const State = {
       stream.state === "connecting" ||
       stream.state === "initializing";
     const statusClass = isBuffering
-      ? "status-buffering-glow"
-      : "status-active-glow";
-    const statusText = stream.state || "active";
+      ? "status-buffering"
+      : "status-live";
+    const statusText = this.formatState(stream.state);
 
     const badge = card.querySelector(".stream-status-badge");
     if (badge) {
@@ -657,18 +594,15 @@ const State = {
 
     const specValues = card.querySelectorAll(".spec-value");
     if (specValues.length >= 4) {
-      specValues[0].textContent = this.formatDuration(stream.uptime);
-      specValues[1].textContent = this.formatBitrate(
-        stream.total_bytes,
-        stream.uptime,
-      );
-      specValues[2].textContent = this.formatBytes(stream.total_bytes);
-      specValues[3].textContent = `${stream.client_count || 0} active`;
+      specValues[0].textContent = this.formatBitrate(stream.total_bytes, stream.uptime);
+      specValues[1].textContent = String(stream.client_count || 0);
+      specValues[2].textContent = this.formatDuration(stream.uptime);
+      specValues[3].textContent = this.formatBytes(stream.total_bytes);
     }
 
     const toggleLabel = card.querySelector(".clients-toggle span");
     if (toggleLabel) {
-      toggleLabel.textContent = `Connected Clients (${stream.client_count || 0})`;
+      toggleLabel.textContent = `Connected clients (${stream.client_count || 0})`;
     }
 
     const wrapper = card.querySelector(".select-wrapper");
@@ -695,9 +629,9 @@ const State = {
       stream.state === "connecting" ||
       stream.state === "initializing";
     const statusClass = isBuffering
-      ? "status-buffering-glow"
-      : "status-active-glow";
-    const statusText = stream.state || "active";
+      ? "status-buffering"
+      : "status-live";
+    const statusText = this.formatState(stream.state);
 
     const channelName =
       stream.channel_name ||
@@ -720,44 +654,44 @@ const State = {
 
       <div class="stream-card-specs">
         <div class="spec-item">
-          <span class="spec-label">Uptime</span>
-          <span class="spec-value">${this.formatDuration(stream.uptime)}</span>
-        </div>
-        <div class="spec-item">
           <span class="spec-label">Average bitrate</span>
           <span class="spec-value">${this.formatBitrate(stream.total_bytes, stream.uptime)}</span>
         </div>
         <div class="spec-item">
-          <span class="spec-label">Data Sent</span>
-          <span class="spec-value">${this.formatBytes(stream.total_bytes)}</span>
+          <span class="spec-label">Clients</span>
+          <span class="spec-value">${stream.client_count || 0}</span>
         </div>
         <div class="spec-item">
-          <span class="spec-label">Clients</span>
-          <span class="spec-value">${stream.client_count || 0} active</span>
+          <span class="spec-label">Uptime</span>
+          <span class="spec-value">${this.formatDuration(stream.uptime)}</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">Data sent</span>
+          <span class="spec-value">${this.formatBytes(stream.total_bytes)}</span>
         </div>
       </div>
 
-      <div class="stream-override-box stream-override-primary">
+      <div class="stream-override-box">
         <span class="override-label">Current source</span>
         <div class="select-wrapper" id="select-wrapper-${stream.channel_id}">
-          <div class="spinner" style="width: 20px; height: 20px;"></div>
+          <div class="spinner is-small"></div>
         </div>
         <div class="stream-pills-container" id="pills-container-${stream.channel_id}"></div>
       </div>
 
       <div class="stream-card-clients">
         <button type="button" class="clients-toggle" id="toggle-${stream.channel_id}" aria-expanded="false" aria-controls="clients-list-${stream.channel_id}">
-          <span>Connected Clients (${stream.client_count || 0})</span>
+          <span>Connected clients (${stream.client_count || 0})</span>
           <i data-lucide="chevron-down"></i>
         </button>
         <div class="clients-list-container" id="clients-list-${stream.channel_id}">
-          <div class="loading-state" style="padding: 10px;"><div class="spinner" style="width: 16px; height: 16px;"></div></div>
+          <div class="loading-state is-compact"><div class="spinner is-small"></div></div>
         </div>
       </div>
 
       <div class="stream-card-actions">
         <button class="btn btn-danger btn-stop-stream" data-channel-id="${stream.channel_id}" data-channel-name="${channelName.replace(/"/g, "&quot;")}">
-          <i data-lucide="square"></i> Stop Stream
+          Stop stream
         </button>
       </div>
     `;
@@ -775,7 +709,7 @@ const State = {
         );
       });
     } else if (wrapper) {
-      wrapper.innerHTML = `<span class="select-placeholder">Channel mapping not found</span>`;
+      wrapper.innerHTML = `<span class="select-placeholder">Channel not found</span>`;
     }
 
     const stopBtn = card.querySelector(".btn-stop-stream");
@@ -799,7 +733,7 @@ const State = {
           const clients = detailData.clients || [];
 
           if (clients.length === 0) {
-            listContainer.innerHTML = `<div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 10px;">No clients connected</div>`;
+            listContainer.innerHTML = `<div class="clients-note">No clients connected</div>`;
             return;
           }
 
@@ -809,7 +743,7 @@ const State = {
               if (c.user_id && c.user_id !== "0") {
                 const username =
                   this.usersMap[c.user_id] || `User #${c.user_id}`;
-                userDisplay = `<span class="client-user"><i data-lucide="user"></i> ${username}</span>`;
+                userDisplay = `<span class="client-user">${username}</span>`;
               }
 
               return `
@@ -829,7 +763,7 @@ const State = {
             .join("");
           lucide.createIcons();
         } catch (err) {
-          listContainer.innerHTML = `<div style="font-size: 0.75rem; color: var(--accent-red); padding: 10px;">Error loading clients</div>`;
+          listContainer.innerHTML = `<div class="clients-note is-error">Could not load clients</div>`;
         }
       }
     });
@@ -845,9 +779,8 @@ const State = {
     if (this.activeStreams.length === 0) {
       grid.innerHTML = `
         <div class="empty-state">
-          <i data-lucide="tv-2"></i>
-          <h3>No Active Streams</h3>
-          <p>No streams are currently being proxied. Open a channel stream link in Tivimate, Plex, or your video player to start streaming.</p>
+          <h3>No live streams</h3>
+          <p>Nothing is being proxied right now. Start a channel in your player and it will appear here.</p>
         </div>
       `;
       lucide.createIcons();
@@ -900,7 +833,7 @@ const State = {
     if (filtered.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="5" class="table-placeholder">No channels match search filter.</td>
+          <td colspan="5" class="table-placeholder">No channels match</td>
         </tr>
       `;
       return;
@@ -926,18 +859,18 @@ const State = {
         (s) => this.channelsByUuid[s.channel_id] === ch.id,
       );
       const activeStatusHtml = activeStream
-        ? `<span class="stream-status-badge status-active-glow" style="font-size: 0.7rem; padding: 1px 6px;">STREAMING (${activeStream.state})</span>`
+        ? `<span class="stream-status-badge status-live">${this.formatState(activeStream.state)}</span>`
         : "";
 
       tr.innerHTML = `
-        <td data-label="Ch #"><span class="channel-no-badge">${ch.channel_number || "-"}</span></td>
-        <td data-label="Channel Name" class="channel-name-cell">${ch.name} ${activeStatusHtml}</td>
-        <td data-label="Channel Group" class="channel-group-cell">${groupName}</td>
-        <td data-label="Current Stream / Source" class="channel-stream-cell" id="source-cell-${ch.id}">
-          <span style="font-size: 0.8rem; color: var(--text-muted);">Loading sources...</span>
+        <td><span class="channel-no-badge">${ch.channel_number || "-"}</span></td>
+        <td class="channel-name-cell">${ch.name}${activeStatusHtml}</td>
+        <td class="channel-group-cell">${groupName}</td>
+        <td class="channel-stream-cell" id="source-cell-${ch.id}">
+          <span class="cell-secondary">Loading sources</span>
         </td>
         <td class="actions-cell" id="actions-cell-${ch.id}">
-          <div class="spinner" style="width: 16px; height: 16px; margin-left: auto;"></div>
+          <div class="spinner is-small"></div>
         </td>
       `;
 
@@ -951,8 +884,8 @@ const State = {
         if (!sourceCell || !actionsCell) return;
 
         if (streams.length === 0) {
-          sourceCell.innerHTML = `<span style="color: var(--accent-red); font-size: 0.8rem;">No sources found</span>`;
-          actionsCell.innerHTML = `<span style="font-size: 0.8rem; color: var(--text-muted); margin-left: auto;">-</span>`;
+          sourceCell.innerHTML = `<span class="cell-negative">No sources</span>`;
+          actionsCell.innerHTML = `<span class="cell-secondary">–</span>`;
           return;
         }
 
@@ -968,7 +901,7 @@ const State = {
         const currentStreamObj =
           streams.find((s) => String(s.id) === String(activeStreamId)) ||
           streams[0];
-        sourceCell.innerHTML = `<span style="font-weight: 500;">${currentStreamObj.name}</span><br><span style="font-size: 0.75rem; color: var(--text-muted);">${this.formatAccountName(currentStreamObj.m3u_account)}</span>`;
+        sourceCell.innerHTML = `<span class="cell-primary">${currentStreamObj.name}</span><span class="cell-secondary">${this.formatAccountName(currentStreamObj.m3u_account)}</span>`;
 
         const button = SourcePicker.element("button", "btn btn-secondary source-browse-btn", "Compare sources");
         button.type = "button";
@@ -980,26 +913,14 @@ const State = {
       });
     });
 
-    // Add text labels to data cells for mobile responsiveness
-    const rows = tbody.getElementsByTagName("tr");
-    for (let r of rows) {
-      const cells = r.getElementsByTagName("td");
-      if (cells.length >= 4) {
-        cells[0].setAttribute("data-label", "Ch #");
-        cells[1].setAttribute("data-label", "Channel Name");
-        cells[2].setAttribute("data-label", "Channel Group");
-        cells[3].setAttribute("data-label", "Current Stream");
-      }
-    }
-
     lucide.createIcons();
   },
 
   async switchStream(channelUuid, streamId, channelName, streamName) {
     try {
       Toast.show(
-        "Switching Stream",
-        `Routing "${channelName}" to "${streamName}"...`,
+        "Switching source",
+        `${channelName}: switching to ${streamName}`,
         "info",
       );
 
@@ -1009,8 +930,8 @@ const State = {
       });
 
       Toast.show(
-        "Stream Switched",
-        `Successfully routed "${channelName}" to "${streamName}".`,
+        "Source switched",
+        `${channelName} now plays ${streamName}`,
         "success",
       );
 
@@ -1024,7 +945,7 @@ const State = {
     } catch (err) {
       console.error(err);
       Toast.show(
-        "Switch Failed",
+        "Switch failed",
         `Could not switch stream: ${err.message}`,
         "error",
       );
@@ -1043,8 +964,8 @@ const State = {
 
     try {
       Toast.show(
-        "Stopping Stream",
-        `Stopping stream and releasing client slots for "${channelName}"...`,
+        "Stopping stream",
+        `Releasing client slots for ${channelName}`,
         "info",
       );
 
@@ -1061,15 +982,15 @@ const State = {
       }
 
       Toast.show(
-        "Stream Stopped",
-        `Successfully terminated stream for "${channelName}".`,
+        "Stream stopped",
+        `${channelName} stopped and client slots released`,
         "success",
       );
       this.refreshActiveStreamsOnly();
     } catch (err) {
       console.error(err);
       Toast.show(
-        "Action Failed",
+        "Stop failed",
         `Could not stop stream: ${err.message}`,
         "error",
       );
@@ -1077,6 +998,12 @@ const State = {
   },
 
   // Format helpers
+  formatState(state) {
+    const labels = { active: "Live", buffering: "Buffering", connecting: "Connecting", initializing: "Starting" };
+    if (labels[state]) return labels[state];
+    return state ? state.charAt(0).toUpperCase() + state.slice(1) : "Live";
+  },
+
   formatDuration(seconds) {
     if (isNaN(seconds) || seconds <= 0) return "0s";
 
