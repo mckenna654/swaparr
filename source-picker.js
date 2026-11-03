@@ -9,6 +9,16 @@ const SourcePicker = {
     return element;
   },
 
+  icon(name) {
+    const icon = document.createElement("i");
+    icon.setAttribute("data-lucide", name);
+    return icon;
+  },
+
+  drawIcons() {
+    if (typeof lucide !== "undefined") lucide.createIcons();
+  },
+
   async open(channelId, channelName, channelUuid) {
     if (this.session) return;
     const dialog = this.element("dialog", "source-picker");
@@ -20,7 +30,8 @@ const SourcePicker = {
     const title = this.element("h2", "", "Choose stream source");
     title.id = "picker-title";
     heading.append(title, this.element("p", "picker-channel", channelName));
-    const close = this.element("button", "icon-btn picker-close", "×");
+    const close = this.element("button", "icon-btn picker-close");
+    close.append(this.icon("x"));
     close.type = "button";
     close.setAttribute("aria-label", "Close source picker");
     header.append(heading, close);
@@ -47,7 +58,7 @@ const SourcePicker = {
     const confirm = this.element("button", "btn picker-confirm", "Choose a source");
     confirm.type = "button";
     confirm.disabled = true;
-    const hint = this.element("p", "picker-hint", "Your stream changes only when you confirm.");
+    const hint = this.element("p", "picker-hint", "Your stream changes only when you confirm");
     footer.append(message, confirm, hint);
     panel.append(header, description, toolbar, list, footer);
     dialog.append(panel);
@@ -86,6 +97,7 @@ const SourcePicker = {
     document.body.append(dialog);
     document.body.classList.add("picker-open");
     dialog.showModal();
+    this.drawIcons();
     close.focus();
     try {
       // Opening the picker deliberately fetches fresh choices, independently of card caches.
@@ -135,7 +147,8 @@ const SourcePicker = {
         content.append(quality);
         const status = this.element("span", "source-choice-status");
         if (editing) {
-          const handle = this.element("button", "order-handle", "⠿");
+          const handle = this.element("button", "order-handle");
+          handle.append(this.icon("grip-vertical"));
           handle.type = "button";
           handle.setAttribute("aria-label", `Drag source ${index + 1} to reorder; or use the move buttons`);
           handle.addEventListener("pointerdown", event => {
@@ -164,8 +177,9 @@ const SourcePicker = {
           handle.addEventListener("pointerup", finish);
           handle.addEventListener("pointercancel", finish);
           const controls = this.element("div", "order-controls");
-          [["up", "↑", -1], ["down", "↓", 1]].forEach(([direction, symbol, delta]) => {
-            const button = this.element("button", `icon-btn order-${direction}`, symbol);
+          [["up", -1], ["down", 1]].forEach(([direction, delta]) => {
+            const button = this.element("button", `icon-btn order-${direction}`);
+            button.append(this.icon(`arrow-${direction}`));
             button.type = "button";
             button.disabled = index + delta < 0 || index + delta >= streams.length;
             button.setAttribute("aria-label", `Move source ${index + 1} ${direction}`);
@@ -181,6 +195,7 @@ const SourcePicker = {
         });
         list.append(row);
     });
+    this.drawIcons();
   },
 
   moveSource(id, target, focusClass) {
@@ -280,7 +295,7 @@ const SourcePicker = {
     session.confirm.classList.toggle("order-save", session.editing);
     session.title.textContent = session.editing ? "Edit source order" : "Choose stream source";
     session.hint.textContent = session.editing ? "First source = highest priority. Saving does not switch current playback."
-      : "Your stream changes only when you confirm.";
+      : "Your stream changes only when you confirm";
     if (session.editing) {
       session.confirm.textContent = "Save order";
       session.confirm.disabled = !!session.conflict || this.sameOrder(session.draft, session.streams);

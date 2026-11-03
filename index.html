@@ -6,7 +6,7 @@
             name="viewport"
             content="width=device-width, initial-scale=1.0"
         />
-        <title>Swaparr - Stream Override Control</title>
+        <title>Swaparr</title>
 
         <!-- App Icons -->
         <link rel="icon" type="image/png" href="Swaparr.png" />
@@ -19,12 +19,10 @@
             name="apple-mobile-web-app-status-bar-style"
             content="black-translucent"
         />
-        
+
         <!-- PWA Web App Manifest -->
         <link rel="manifest" href="manifest.json" />
 
-
-        <!-- Custom Vanilla CSS in style.css -->
         <link rel="stylesheet" href="style.css?v=1.1.6" />
 
         <!-- Lucide Icons Library -->
@@ -33,32 +31,44 @@
     <body>
         <!-- App Shell -->
         <div class="app-container">
-            <!-- Top Navigation Bar -->
+            <!-- Top Bar -->
             <header class="app-header">
                 <div class="header-left">
-                    <div class="logo-icon">
-                        <i data-lucide="refresh-cw" class="logo-rotate"></i>
-                    </div>
+                    <svg
+                        class="logo-mark"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <path d="M4 8h13" />
+                        <path d="m14 5 3 3-3 3" />
+                        <path d="M20 16H7" />
+                        <path d="m10 13-3 3 3 3" />
+                    </svg>
                     <div class="logo-text">
                         <h1>Swaparr</h1>
-                        <span class="sub-text">Dispatcharr Override Tool</span>
+                        <span class="sub-text">for Dispatcharr</span>
                     </div>
                 </div>
 
                 <div class="header-right">
-                    <!-- API Connection Status Badge -->
+                    <!-- API Connection Status -->
                     <div
                         id="status-badge"
                         class="status-badge status-disconnected"
                     >
                         <span class="status-dot"></span>
-                        <span id="status-text">Checking API...</span>
+                        <span id="status-text">Checking</span>
                     </div>
 
                     <button
                         id="settings-btn"
                         class="icon-btn"
-                        aria-label="Open Settings"
+                        aria-label="Open settings"
                     >
                         <i data-lucide="settings"></i>
                     </button>
@@ -67,62 +77,37 @@
 
             <!-- Main Content Area -->
             <main class="app-main">
-                <!-- Stats Summary Banner -->
-                <section class="stats-banner card">
+                <!-- Readout row -->
+                <section class="stats-banner card" aria-label="Summary">
                     <div class="stat-item">
-                        <span class="stat-label"
-                            ><i
-                                data-lucide="activity"
-                                class="stat-icon text-cyan"
-                            ></i>
-                            Active Streams</span
-                        >
+                        <span class="stat-label">Streams</span>
                         <span id="stat-active-count" class="stat-value">0</span>
                     </div>
-                    <div class="stat-divider"></div>
                     <div class="stat-item">
-                        <span class="stat-label"
-                            ><i
-                                data-lucide="users"
-                                class="stat-icon text-purple"
-                            ></i>
-                            Connected Clients</span
-                        >
+                        <span class="stat-label">Clients</span>
                         <span id="stat-client-count" class="stat-value">0</span>
                     </div>
-                    <div class="stat-divider"></div>
                     <div class="stat-item">
-                        <span class="stat-label"
-                            ><i
-                                data-lucide="gauge"
-                                class="stat-icon text-pink"
-                            ></i>
-                            Total Bandwidth</span
-                        >
+                        <span class="stat-label">Bandwidth</span>
                         <span id="stat-bandwidth" class="stat-value"
                             >0.00 Mbps</span
                         >
                     </div>
                 </section>
 
-                <!-- Active Streams Section -->
+                <!-- Live Streams -->
                 <section class="section-container">
                     <div class="section-header">
                         <div class="section-title">
-                            <i
-                                data-lucide="play-circle"
-                                class="section-icon"
-                            ></i>
-                            <h2>Live Streams</h2>
+                            <h2>Live streams</h2>
                         </div>
                         <div class="section-actions">
-                            <!-- Refresh Controls -->
                             <button id="refresh-btn" class="btn btn-secondary">
                                 <i
                                     data-lucide="refresh-cw"
                                     class="btn-icon"
                                 ></i>
-                                Refresh Now
+                                Refresh
                             </button>
                             <label class="auto-refresh-toggle">
                                 <input
@@ -140,29 +125,27 @@
                         </div>
                     </div>
 
-                    <!-- Active Streams Grid -->
                     <div id="active-streams-grid" class="streams-grid">
-                        <!-- Loading State Placeholder -->
                         <div class="loading-state">
                             <div class="spinner"></div>
-                            <p>Loading active streams...</p>
+                            <p>Loading streams</p>
                         </div>
                     </div>
                 </section>
 
-                <!-- All Channels Explorer Section -->
+                <!-- Channels -->
                 <section class="section-container">
                     <div class="section-header flex-col-sm">
                         <div class="section-title">
-                            <i data-lucide="tv" class="section-icon"></i>
-                            <h2>All Channels Browser</h2>
+                            <h2>Channels</h2>
                         </div>
                         <div class="search-box">
                             <i data-lucide="search" class="search-icon"></i>
                             <input
                                 type="text"
                                 id="channel-search-input"
-                                placeholder="Search channels by name or group..."
+                                placeholder="Search channels"
+                                aria-label="Search channels"
                             />
                         </div>
                     </div>
@@ -172,12 +155,12 @@
                             <table class="custom-table">
                                 <thead>
                                     <tr>
-                                        <th>Ch #</th>
-                                        <th>Channel Name</th>
-                                        <th>Channel Group</th>
-                                        <th>Current Stream / Source</th>
-                                        <th class="actions-header">
-                                            Actions / Override
+                                        <th scope="col">No.</th>
+                                        <th scope="col">Channel</th>
+                                        <th scope="col">Group</th>
+                                        <th scope="col">Current source</th>
+                                        <th scope="col" class="actions-header">
+                                            <span class="visually-hidden"></span>
                                         </th>
                                     </tr>
                                 </thead>
@@ -187,7 +170,7 @@
                                             colspan="5"
                                             class="table-placeholder"
                                         >
-                                            Loading channel list...
+                                            Loading channels
                                         </td>
                                     </tr>
                                 </tbody>
@@ -199,21 +182,20 @@
 
             <!-- Footer -->
             <footer class="app-footer">
-                <p>
-                    Swaparr &copy; 2026. Custom mobile client for Dispatcharr
-                    middleware.
-                </p>
+                <p>Swaparr for Dispatcharr</p>
             </footer>
 
-            <!-- Settings Modal -->
+            <!-- Settings Dialog -->
             <div id="settings-modal" class="modal">
                 <div class="modal-content card">
                     <div class="modal-header">
-                        <h2>
-                            <i data-lucide="settings"></i> Server Configuration
-                        </h2>
-                        <button class="modal-close" id="settings-close-btn">
-                            &times;
+                        <h2>Server settings</h2>
+                        <button
+                            class="icon-btn modal-close"
+                            id="settings-close-btn"
+                            aria-label="Close settings"
+                        >
+                            <i data-lucide="x"></i>
                         </button>
                     </div>
 
@@ -221,19 +203,16 @@
                         <div class="form-info-box">
                             <i data-lucide="info"></i>
                             <p>
-                                Swaparr is configured server-side via
-                                environment variables to keep your credentials
-                                secure across devices. Pass
+                                Swaparr reads its connection from the server,
+                                so the API key never reaches the browser. Set
                                 <code>DISPATCHARR_URL</code> and
-                                <code>DISPATCHARR_API_KEY</code> when starting
-                                the container.
+                                <code>DISPATCHARR_API_KEY</code> on the
+                                container.
                             </p>
                         </div>
 
                         <div class="form-group">
-                            <label for="dispatcharr-url"
-                                >Dispatcharr API URL</label
-                            >
+                            <label for="dispatcharr-url">Dispatcharr URL</label>
                             <input
                                 type="url"
                                 id="dispatcharr-url"
@@ -243,7 +222,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="dispatcharr-api-key">API Key</label>
+                            <label for="dispatcharr-api-key">API key</label>
                             <div class="password-input-container">
                                 <input
                                     type="password"
@@ -255,7 +234,7 @@
                                     type="button"
                                     id="toggle-api-key-btn"
                                     class="toggle-password-btn"
-                                    aria-label="Toggle Password Visibility"
+                                    aria-label="Show or hide API key"
                                 >
                                     <i data-lucide="eye"></i>
                                 </button>
@@ -266,15 +245,15 @@
                             <button
                                 type="button"
                                 id="test-connection-btn"
-                                class="btn btn-secondary"
+                                class="btn btn-primary"
                             >
-                                <i data-lucide="activity"></i> Test Connection
+                                Test connection
                             </button>
                             <div class="btn-group">
                                 <button
                                     type="button"
                                     id="settings-cancel-btn"
-                                    class="btn btn-primary"
+                                    class="btn btn-secondary"
                                 >
                                     Close
                                 </button>
@@ -290,7 +269,6 @@
             </div>
         </div>
 
-        <!-- Main JavaScript File -->
         <script src="source-picker.js?v=1.1.6"></script>
         <script src="app.js?v=1.1.6"></script>
     </body>
