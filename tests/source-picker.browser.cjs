@@ -14,6 +14,8 @@ fs.mkdirSync(screenshots, { recursive: true });
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true });
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
+    // A playlist can put markup in names. It must render as text and run nothing.
+    const hostileGroup = '<img src=x onerror="window.__xss = 1">';
     const sources = [
       { id: 1, name: "AU: Fox Sports 502", m3u_account: { name: "Infinity" }, stream_stats: { resolution: "1920x1080", source_fps: 50, video_codec: "h264", audio_codec: "ac3", audio_channels: "5.1" } },
       { id: 2, name: "AU | FOX SPORTS 502 HD", m3u_account: { name: "Promax" }, stream_stats: { resolution: "1280x720", source_fps: 25, video_codec: "h264" } },
@@ -62,7 +64,7 @@ fs.mkdirSync(screenshots, { recursive: true });
         // A valid empty success response is supported too.
         return route.fulfill({ status: 204 });
       } else if (endpoint === "/api/channels/channels/") data = [{ id: 10, uuid: "fox-502", name: "Fox Sports 502", channel_number: 502, channel_group_id: 1 }];
-      else if (endpoint === "/api/channels/groups/") data = [{ id: 1, name: "FOXTEL" }];
+      else if (endpoint === "/api/channels/groups/") data = [{ id: 1, name: hostileGroup }];
       else if (endpoint.startsWith("/api/")) data = [];
       if (data !== undefined) return route.fulfill({ json: data });
       const file = path.join(root, endpoint === "/" ? "index.html" : endpoint);
@@ -87,6 +89,9 @@ fs.mkdirSync(screenshots, { recursive: true });
     const change = page.getByRole("button", { name: "Change source", exact: true });
     await change.waitFor();
     await page.evaluate(() => State.stopAutoRefresh());
+    assert.equal(await page.locator("img").count(), 0, "Hostile group name creates no element");
+    assert.equal(await page.evaluate(() => window.__xss), undefined);
+    assert.match(await page.locator(".stream-group-badge").first().innerText(), /<img/);
     assert.match(await page.locator(".current-source").innerText(), /Infinity/);
     const sourceBox = await page.locator(".current-source").boundingBox();
     const changeBox = await change.boundingBox();

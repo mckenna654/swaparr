@@ -5,6 +5,21 @@ Update it at the end of every non-trivial session.
 
 ## Current state (3 November 2026)
 
+Branch `claude/escape-provider-data` (after PR 8 merged) closes an automated security
+finding: `app.js` used to interpolate API strings into `innerHTML`. Channel, group,
+stream, provider and client values come from third-party playlists and players, so a
+crafted name could inject markup. Now:
+
+- The stream card template is static; `createStreamCard()` fills it with `textContent`
+  and sets ids and `dataset` afterwards.
+- `buildChannelRow()`, `buildSourceCell()` and `buildClientRow()` build the channels
+  table and client list from elements. The only `innerHTML` left in `app.js` is static
+  markup with no interpolation.
+- `tests/escaping.test.cjs` runs the builders against a hostile name in a tiny fake DOM;
+  the browser check also loads a hostile group name and asserts nothing executes.
+
+Earlier the same day, PR 8 merged the interface polish pass described next.
+
 Branch `claude/unslop` holds a polish pass over the whole interface, done with the
 unslop skill in "polish mode": the charcoal palette, teal accent, system font, layout
 and section order are unchanged. What changed:
@@ -30,7 +45,7 @@ and section order are unchanged. What changed:
 
 ## Verified
 
-- `node --test tests/*.test.cjs`: 4 pass.
+- `node --test tests/*.test.cjs`: 7 pass.
 - `python3 -m unittest discover -s tests`: 3 pass.
 - `tests/source-picker.browser.cjs`: PASS, run with Playwright 1.49.1 installed outside
   the repo and `CHROME_PATH` pointing at Google Chrome. Screenshots regenerated from it.
@@ -46,8 +61,9 @@ and section order are unchanged. What changed:
 
 ## Next steps
 
-- Review the PR for `claude/unslop`, merge, and decide whether this is a version bump
-  (the `?v=1.1.6` cache-busters in `index.html` should move with the next release).
+- Review and merge the PR for `claude/escape-provider-data`.
+- Decide whether these changes are a version bump (the `?v=1.1.6` cache-busters in
+  `index.html` should move with the next release).
 - Consider pinning the Lucide script to a fixed version with an integrity hash; it
   currently loads `lucide@latest` from unpkg.
 - Two Dependabot PRs are open (GitHub Actions bumps, nginx 1.27 to 1.31). Not reviewed.

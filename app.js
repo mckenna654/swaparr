@@ -646,55 +646,73 @@ const State = {
     card.innerHTML = `
       <div class="stream-card-header">
         <div class="stream-title-area">
-          <h3>${channelName}</h3>
-          <span class="stream-group-badge">${groupName}</span>
+          <h3></h3>
+          <span class="stream-group-badge"></span>
         </div>
-        <span class="stream-status-badge ${statusClass}">${statusText}</span>
+        <span class="stream-status-badge"></span>
       </div>
 
       <div class="stream-card-specs">
         <div class="spec-item">
           <span class="spec-label">Average bitrate</span>
-          <span class="spec-value">${this.formatBitrate(stream.total_bytes, stream.uptime)}</span>
+          <span class="spec-value"></span>
         </div>
         <div class="spec-item">
           <span class="spec-label">Clients</span>
-          <span class="spec-value">${stream.client_count || 0}</span>
+          <span class="spec-value"></span>
         </div>
         <div class="spec-item">
           <span class="spec-label">Uptime</span>
-          <span class="spec-value">${this.formatDuration(stream.uptime)}</span>
+          <span class="spec-value"></span>
         </div>
         <div class="spec-item">
           <span class="spec-label">Data sent</span>
-          <span class="spec-value">${this.formatBytes(stream.total_bytes)}</span>
+          <span class="spec-value"></span>
         </div>
       </div>
 
       <div class="stream-override-box">
         <span class="override-label">Current source</span>
-        <div class="select-wrapper" id="select-wrapper-${stream.channel_id}">
+        <div class="select-wrapper">
           <div class="spinner is-small"></div>
         </div>
-        <div class="stream-pills-container" id="pills-container-${stream.channel_id}"></div>
+        <div class="stream-pills-container"></div>
       </div>
 
       <div class="stream-card-clients">
-        <button type="button" class="clients-toggle" id="toggle-${stream.channel_id}" aria-expanded="false" aria-controls="clients-list-${stream.channel_id}">
-          <span>Connected clients (${stream.client_count || 0})</span>
+        <button type="button" class="clients-toggle" aria-expanded="false">
+          <span></span>
           <i data-lucide="chevron-down"></i>
         </button>
-        <div class="clients-list-container" id="clients-list-${stream.channel_id}">
+        <div class="clients-list-container">
           <div class="loading-state is-compact"><div class="spinner is-small"></div></div>
         </div>
       </div>
 
       <div class="stream-card-actions">
-        <button class="btn btn-danger btn-stop-stream" data-channel-id="${stream.channel_id}" data-channel-name="${channelName.replace(/"/g, "&quot;")}">
-          Stop stream
-        </button>
+        <button type="button" class="btn btn-danger btn-stop-stream">Stop stream</button>
       </div>
     `;
+
+    // API values only ever reach the card as text, never as markup.
+    card.querySelector("h3").textContent = channelName;
+    card.querySelector(".stream-group-badge").textContent = groupName;
+    const badge = card.querySelector(".stream-status-badge");
+    badge.classList.add(statusClass);
+    badge.textContent = statusText;
+    const specValues = card.querySelectorAll(".spec-value");
+    specValues[0].textContent = this.formatBitrate(stream.total_bytes, stream.uptime);
+    specValues[1].textContent = String(stream.client_count || 0);
+    specValues[2].textContent = this.formatDuration(stream.uptime);
+    specValues[3].textContent = this.formatBytes(stream.total_bytes);
+    card.querySelector(".select-wrapper").id = `select-wrapper-${stream.channel_id}`;
+    card.querySelector(".stream-pills-container").id = `pills-container-${stream.channel_id}`;
+    const clientsToggle = card.querySelector(".clients-toggle");
+    clientsToggle.id = `toggle-${stream.channel_id}`;
+    clientsToggle.setAttribute("aria-controls", `clients-list-${stream.channel_id}`);
+    clientsToggle.querySelector("span").textContent = `Connected clients (${stream.client_count || 0})`;
+    card.querySelector(".clients-list-container").id = `clients-list-${stream.channel_id}`;
+    card.querySelector(".btn-stop-stream").dataset.channelId = stream.channel_id;
 
     const wrapper = card.querySelector(".select-wrapper");
     if (channelDbId) {
@@ -709,7 +727,7 @@ const State = {
         );
       });
     } else if (wrapper) {
-      wrapper.innerHTML = `<span class="select-placeholder">Channel not found</span>`;
+      wrapper.replaceChildren(SourcePicker.element("span", "select-placeholder", "Channel not found"));
     }
 
     const stopBtn = card.querySelector(".btn-stop-stream");
@@ -733,37 +751,13 @@ const State = {
           const clients = detailData.clients || [];
 
           if (clients.length === 0) {
-            listContainer.innerHTML = `<div class="clients-note">No clients connected</div>`;
+            listContainer.replaceChildren(SourcePicker.element("div", "clients-note", "No clients connected"));
             return;
           }
 
-          listContainer.innerHTML = clients
-            .map((c) => {
-              let userDisplay = "";
-              if (c.user_id && c.user_id !== "0") {
-                const username =
-                  this.usersMap[c.user_id] || `User #${c.user_id}`;
-                userDisplay = `<span class="client-user">${username}</span>`;
-              }
-
-              return `
-            <div class="client-row">
-              <div class="client-info">
-                ${userDisplay}
-                <span class="client-ip">${c.ip_address}</span>
-                <span class="client-ua" title="${c.user_agent}">${c.user_agent}</span>
-              </div>
-              <div class="client-stats">
-                <span class="client-rate">${c.current_rate_KBps ? c.current_rate_KBps.toFixed(1) + " KB/s" : "0 KB/s"}</span>
-                <span class="client-uptime">${c.connected_at ? this.formatDuration(Date.now() / 1000 - c.connected_at) : ""}</span>
-              </div>
-            </div>
-          `;
-            })
-            .join("");
-          lucide.createIcons();
+          listContainer.replaceChildren(...clients.map((client) => this.buildClientRow(client)));
         } catch (err) {
-          listContainer.innerHTML = `<div class="clients-note is-error">Could not load clients</div>`;
+          listContainer.replaceChildren(SourcePicker.element("div", "clients-note is-error", "Could not load clients"));
         }
       }
     });
@@ -847,8 +841,6 @@ const State = {
     const itemsToRender = filtered.slice(0, maxRender);
 
     itemsToRender.forEach((ch) => {
-      const tr = document.createElement("tr");
-
       const groupName =
         ch.channel_group_id && this.channelGroupsMap[ch.channel_group_id]
           ? this.channelGroupsMap[ch.channel_group_id]
@@ -858,21 +850,7 @@ const State = {
       const activeStream = this.activeStreams.find(
         (s) => this.channelsByUuid[s.channel_id] === ch.id,
       );
-      const activeStatusHtml = activeStream
-        ? `<span class="stream-status-badge status-live">${this.formatState(activeStream.state)}</span>`
-        : "";
-
-      tr.innerHTML = `
-        <td><span class="channel-no-badge">${ch.channel_number || "-"}</span></td>
-        <td class="channel-name-cell">${ch.name}${activeStatusHtml}</td>
-        <td class="channel-group-cell">${groupName}</td>
-        <td class="channel-stream-cell" id="source-cell-${ch.id}">
-          <span class="cell-secondary">Loading sources</span>
-        </td>
-        <td class="actions-cell" id="actions-cell-${ch.id}">
-          <div class="spinner is-small"></div>
-        </td>
-      `;
+      const tr = this.buildChannelRow(ch, groupName, activeStream);
 
       tbody.appendChild(tr);
 
@@ -884,8 +862,8 @@ const State = {
         if (!sourceCell || !actionsCell) return;
 
         if (streams.length === 0) {
-          sourceCell.innerHTML = `<span class="cell-negative">No sources</span>`;
-          actionsCell.innerHTML = `<span class="cell-secondary">–</span>`;
+          sourceCell.replaceChildren(SourcePicker.element("span", "cell-negative", "No sources"));
+          actionsCell.replaceChildren(SourcePicker.element("span", "cell-secondary", "–"));
           return;
         }
 
@@ -901,7 +879,7 @@ const State = {
         const currentStreamObj =
           streams.find((s) => String(s.id) === String(activeStreamId)) ||
           streams[0];
-        sourceCell.innerHTML = `<span class="cell-primary">${currentStreamObj.name}</span><span class="cell-secondary">${this.formatAccountName(currentStreamObj.m3u_account)}</span>`;
+        sourceCell.replaceChildren(...this.buildSourceCell(currentStreamObj));
 
         const button = SourcePicker.element("button", "btn btn-secondary source-browse-btn", "Compare sources");
         button.type = "button";
@@ -998,6 +976,54 @@ const State = {
   },
 
   // Format helpers
+  // Builders below take API values as text only. Channel, group, stream, provider and
+  // client strings come from third-party playlists and players, so they are never markup.
+  buildChannelRow(ch, groupName, activeStream) {
+    const tr = document.createElement("tr");
+    const number = SourcePicker.element("td", "");
+    number.append(SourcePicker.element("span", "channel-no-badge", String(ch.channel_number || "-")));
+    const name = SourcePicker.element("td", "channel-name-cell", String(ch.name ?? ""));
+    if (activeStream) {
+      name.append(SourcePicker.element("span", "stream-status-badge status-live", this.formatState(activeStream.state)));
+    }
+    const group = SourcePicker.element("td", "channel-group-cell", String(groupName ?? ""));
+    const source = SourcePicker.element("td", "channel-stream-cell");
+    source.id = `source-cell-${ch.id}`;
+    source.append(SourcePicker.element("span", "cell-secondary", "Loading sources"));
+    const actions = SourcePicker.element("td", "actions-cell");
+    actions.id = `actions-cell-${ch.id}`;
+    actions.append(SourcePicker.element("div", "spinner is-small"));
+    tr.append(number, name, group, source, actions);
+    return tr;
+  },
+
+  buildSourceCell(stream) {
+    return [
+      SourcePicker.element("span", "cell-primary", String(stream.name || `Stream #${stream.id}`)),
+      SourcePicker.element("span", "cell-secondary", this.formatAccountName(stream.m3u_account)),
+    ];
+  },
+
+  buildClientRow(client) {
+    const row = SourcePicker.element("div", "client-row");
+    const info = SourcePicker.element("div", "client-info");
+    if (client.user_id && client.user_id !== "0") {
+      info.append(SourcePicker.element("span", "client-user", this.usersMap[client.user_id] || `User #${client.user_id}`));
+    }
+    const userAgent = String(client.user_agent || "");
+    const agent = SourcePicker.element("span", "client-ua", userAgent);
+    agent.title = userAgent;
+    info.append(SourcePicker.element("span", "client-ip", String(client.ip_address || "")), agent);
+    const rate = Number(client.current_rate_KBps);
+    const stats = SourcePicker.element("div", "client-stats");
+    stats.append(
+      SourcePicker.element("span", "client-rate", Number.isFinite(rate) && rate > 0 ? `${rate.toFixed(1)} KB/s` : "0 KB/s"),
+      SourcePicker.element("span", "client-uptime", client.connected_at ? this.formatDuration(Date.now() / 1000 - client.connected_at) : ""),
+    );
+    row.append(info, stats);
+    return row;
+  },
+
   formatState(state) {
     const labels = { active: "Live", buffering: "Buffering", connecting: "Connecting", initializing: "Starting" };
     if (labels[state]) return labels[state];
