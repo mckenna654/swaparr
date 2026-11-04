@@ -3,7 +3,7 @@
 Read this first when picking Swaparr up on another device or in another session.
 Update it at the end of every non-trivial session.
 
-## Current state (3 November 2026)
+## Current state (4 November 2026)
 
 Branch `claude/escape-provider-data` (after PR 8 merged) closes an automated security
 finding: `app.js` used to interpolate API strings into `innerHTML`. Channel, group,
@@ -61,9 +61,8 @@ and section order are unchanged. What changed:
 
 ## Next steps
 
-- Review and merge the PR for `claude/escape-provider-data`.
-- Decide whether these changes are a version bump (the `?v=1.1.6` cache-busters in
-  `index.html` should move with the next release).
+- Released as v1.2.0 on 4 November 2026 (tag, GitHub release, versioned image). The
+  `?v=` cache-busters in `index.html` move with each release.
 - Consider pinning the Lucide script to a fixed version with an integrity hash; it
   currently loads `lucide@latest` from unpkg.
 - Two Dependabot PRs are open (GitHub Actions bumps, nginx 1.27 to 1.31). Not reviewed.
