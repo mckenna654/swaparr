@@ -5,6 +5,7 @@ RUN apk add --no-cache gettext
 COPY nginx.conf.template /etc/nginx/conf.d/default.conf.template
 COPY 40-generate-config.sh /docker-entrypoint.d/
 COPY index.html app.js source-picker.js style.css Swaparr.png manifest.json /usr/share/nginx/html/
+COPY vendor/ /usr/share/nginx/html/vendor/
 
 ARG NGINX_PORT=8080
 ENV NGINX_PORT=${NGINX_PORT}

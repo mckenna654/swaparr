@@ -3,7 +3,30 @@
 Read this first when picking Swaparr up on another device or in another session.
 Update it at the end of every non-trivial session.
 
-## Current state (4 November 2026)
+## Current state (5 November 2026)
+
+Branch `claude/review-fixes` (after v1.2.0) fixes the four correctness findings from a
+full-project code review:
+
+- Lucide is vendored at `vendor/lucide.min.js` (v0.468.0, ISC) and copied into the image,
+  so the dashboard no longer needs internet access or unpkg to start. Every icon call in
+  `app.js` goes through `SourcePicker.drawIcons()`, which is a no-op if the library is
+  missing.
+- `docker-compose.yml` maps `${PORT}` to the same port inside the container, matching
+  `NGINX_PORT`. Previously any non-default PORT gave connection refused.
+- `State.apiFetch()` treats an empty 200 body as success instead of a JSON parse error,
+  and attaches `error.status`. `stopStream()` falls back from DELETE to POST only on
+  405 or 501; other failures are reported as they are.
+- `40-generate-config.sh` exits with a clear message when `DISPATCHARR_URL` is unset and
+  warns when `DISPATCHARR_API_KEY` is empty, instead of letting nginx crash-loop on
+  `proxy_pass /;`.
+
+Still open from the same review (not fixed): the channels table fires up to 150 stream
+fetches at once and calls `drawIcons()` per row; `run_server.py` is single-threaded with
+no upstream timeout; DISABLE_PROXY mode sends the API key to the browser, which conflicts
+with the rule in AGENTS.md; `createStreamCard()` duplicates `updateStreamCard()`; the
+settings modal is a hand-rolled div rather than a `<dialog>`; `formatStreamLabel()` and
+`populateStreamOptions()` are dead apart from their tests.
 
 Branch `claude/escape-provider-data` (after PR 8 merged) closes an automated security
 finding: `app.js` used to interpolate API strings into `innerHTML`. Channel, group,
@@ -63,8 +86,7 @@ and section order are unchanged. What changed:
 
 - Released as v1.2.0 on 4 November 2026 (tag, GitHub release, versioned image). The
   `?v=` cache-busters in `index.html` move with each release.
-- Consider pinning the Lucide script to a fixed version with an integrity hash; it
-  currently loads `lucide@latest` from unpkg.
+- Lucide is now vendored; bump `vendor/lucide.min.js` deliberately when needed.
 - Two Dependabot PRs are open (GitHub Actions bumps, nginx 1.27 to 1.31). Not reviewed.
 
 ## How to run the browser check without Playwright in the repo

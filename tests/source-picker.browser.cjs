@@ -1,5 +1,5 @@
 // Run with Playwright installed: node tests/source-picker.browser.cjs
-// Optional PLAYWRIGHT_MODULE, LUCIDE_SCRIPT, CHROME_PATH, SCREENSHOT_DIR overrides.
+// Optional PLAYWRIGHT_MODULE, CHROME_PATH, SCREENSHOT_DIR overrides.
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -32,10 +32,6 @@ fs.mkdirSync(screenshots, { recursive: true });
     let failSources = false;
     await page.route("**/*", async route => {
       const url = new URL(route.request().url());
-      if (url.hostname === "unpkg.com") {
-        if (process.env.LUCIDE_SCRIPT) return route.fulfill({ contentType: "text/javascript", body: fs.readFileSync(process.env.LUCIDE_SCRIPT) });
-        return route.continue();
-      }
       const endpoint = url.pathname.replace("/dispatcharr-api", "");
       let data;
       if (endpoint === "/config.json") data = { url: "/dispatcharr-api" };
