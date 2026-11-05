@@ -33,7 +33,7 @@ const Toast = {
     toast.append(heading, body);
 
     this.container.appendChild(toast);
-    lucide.createIcons();
+    SourcePicker.drawIcons();
 
     // Animate in
     requestAnimationFrame(() => toast.classList.add("is-visible"));
@@ -69,7 +69,7 @@ const State = {
 
   async init() {
     this.setupEventListeners();
-    lucide.createIcons();
+    SourcePicker.drawIcons();
 
     await this.loadConfig();
 
@@ -133,11 +133,15 @@ const State = {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+      error.status = response.status;
+      throw error;
     }
 
-    if (response.status === 204) return null;
-    return response.json();
+    // Some endpoints answer 200 with no body. That is a success, not a parse error.
+    const text = await response.text();
+    if (!text.trim()) return null;
+    return JSON.parse(text);
   },
 
   updateConnectionStatus(connected, message = "") {
@@ -178,7 +182,7 @@ const State = {
           input.type = "password";
           icon.setAttribute("data-lucide", "eye");
         }
-        lucide.createIcons();
+        SourcePicker.drawIcons();
       });
 
     // Settings form submit prevented
@@ -777,7 +781,7 @@ const State = {
           <p>Nothing is being proxied right now. Start a channel in your player and it will appear here.</p>
         </div>
       `;
-      lucide.createIcons();
+      SourcePicker.drawIcons();
       return;
     }
 
@@ -803,7 +807,7 @@ const State = {
     grid
       .querySelectorAll(".empty-state, .loading-state")
       .forEach((el) => el.remove());
-    lucide.createIcons();
+    SourcePicker.drawIcons();
   },
 
   renderChannelsExplorer() {
@@ -887,11 +891,11 @@ const State = {
         button.addEventListener("click", () => SourcePicker.open(ch.id, ch.name, ch.uuid));
         actionsCell.replaceChildren(button);
 
-        lucide.createIcons();
+        SourcePicker.drawIcons();
       });
     });
 
-    lucide.createIcons();
+    SourcePicker.drawIcons();
   },
 
   async switchStream(channelUuid, streamId, channelName, streamName) {
@@ -947,12 +951,14 @@ const State = {
         "info",
       );
 
-      // Try DELETE first, fall back to POST
+      // Try DELETE first. Fall back to POST only when the server says DELETE is
+      // not supported; any other failure is reported as it is, not retried.
       try {
         await this.apiFetch(`/proxy/ts/stop/${channelUuid}`, {
           method: "DELETE",
         });
       } catch (e) {
+        if (e.status !== 405 && e.status !== 501) throw e;
         await this.apiFetch(`/proxy/ts/stop/${channelUuid}`, {
           method: "POST",
           body: JSON.stringify({}),
