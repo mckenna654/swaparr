@@ -5,7 +5,7 @@ Update it at the end of every non-trivial session.
 
 ## Current state (5 November 2026)
 
-Branch `claude/review-fixes` (after v1.2.0) fixes the four correctness findings from a
+v1.2.1 (released 5 November 2026, PR 11) fixes the four correctness findings from a
 full-project code review:
 
 - Lucide is vendored at `vendor/lucide.min.js` (v0.468.0, ISC) and copied into the image,
@@ -84,7 +84,8 @@ and section order are unchanged. What changed:
 
 ## Next steps
 
-- Released as v1.2.0 on 4 November 2026 (tag, GitHub release, versioned image). The
+- v1.2.0 released 4 November 2026 and v1.2.1 released 5 November 2026 (tag, GitHub
+  release, versioned image). The
   `?v=` cache-busters in `index.html` move with each release.
 - Lucide is now vendored; bump `vendor/lucide.min.js` deliberately when needed.
 - Two Dependabot PRs are open (GitHub Actions bumps, nginx 1.27 to 1.31). Not reviewed.
