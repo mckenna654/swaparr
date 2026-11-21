@@ -21,3 +21,17 @@ Dispatcharr API. Ships as `ghcr.io/mckenna654/swaparr`. Global rules: `mckenna65
 - Screenshots in `docs/screenshots` use example data or blur channel and provider identities.
 - Keep the compact charcoal UI. It must still work on small touch screens.
 - Commit style: conventional prefixes (`feat:`, `fix:`, `docs:`).
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in this repo's GitHub Issues, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root, created when first needed. See `docs/agents/domain.md`.
