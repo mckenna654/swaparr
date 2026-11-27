@@ -20,6 +20,9 @@ const SECRETS = [
   "secret-api-key-123",
   "VLC/3.0.20 LibVLC/3.0.20",
   "Kayo Sports",
+  "jakesmith",
+  "kayo-sports-hd",
+  "Fox Footy",
 ];
 
 const hostile = {
@@ -40,7 +43,9 @@ const hostile = {
     tvg_id: null,
   }],
   users: [{ id: 1, username: "jake", email: "jake@example.com", api_key: "secret-api-key-123" }],
-  by_name: { "Mum's iPad": 1, "192.168.1.50": 2 },
+  by_name: { "Mum's iPad": 1, "192.168.1.50": 2, jakesmith: 3, "kayo-sports-hd": 4 },
+  // Values under "safe" keys must still match that key's strict pattern.
+  probe: { video_codec: "Fox Footy", audio_channels: "jakesmith", source_fps: "Kayo Sports" },
 };
 
 test("redaction hides every private string, including inside JSON text and object keys", () => {
@@ -48,7 +53,7 @@ test("redaction hides every private string, including inside JSON text and objec
   for (const secret of SECRETS) {
     assert.ok(!text.includes(secret), `leaked: ${secret}`);
   }
-  for (const fragment of ["pa55word", "provider.example", "example.com", "Fox Sports", "Infinity", "VLC"]) {
+  for (const fragment of ["pa55word", "provider.example", "example.com", "Fox Sports", "Infinity", "VLC", "jake", "kayo"]) {
     assert.ok(!text.includes(fragment), `leaked fragment: ${fragment}`);
   }
 });
