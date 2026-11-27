@@ -1,3 +1,21 @@
+# Only the Dispatcharr calls Swaparr itself makes are forwarded. The proxy adds the
+# admin API key, so without this list anyone who can open Swaparr could use every
+# Dispatcharr endpoint (users, provider accounts, settings). Keep this list in step
+# with API_ALLOWLIST in run_server.py; tests/test_proxy.py checks they match.
+map "$request_method $uri" $swaparr_api_allowed {
+    default 0;
+    "~^GET /dispatcharr-api/api/accounts/users/$" 1;
+    "~^GET /dispatcharr-api/api/m3u/accounts/$" 1;
+    "~^GET /dispatcharr-api/api/channels/groups/$" 1;
+    "~^GET /dispatcharr-api/api/channels/channels/$" 1;
+    "~^GET /dispatcharr-api/api/channels/channels/[0-9]+/streams/$" 1;
+    "~^PATCH /dispatcharr-api/api/channels/channels/[0-9]+/$" 1;
+    "~^GET /dispatcharr-api/proxy/ts/status$" 1;
+    "~^GET /dispatcharr-api/proxy/ts/status/[A-Za-z0-9-]+$" 1;
+    "~^POST /dispatcharr-api/proxy/ts/change_stream/[A-Za-z0-9-]+$" 1;
+    "~^(DELETE|POST) /dispatcharr-api/proxy/ts/stop/[A-Za-z0-9-]+$" 1;
+}
+
 server {
     listen ${NGINX_PORT};
     server_name _;
@@ -11,17 +29,22 @@ server {
 
     # Reverse proxy for Dispatcharr API
     location /dispatcharr-api/ {
+        # Refuse anything Swaparr does not use before the key is attached.
+        if ($swaparr_api_allowed = 0) {
+            return 403;
+        }
+
         # proxy_pass must not have a trailing slash if we want to forward the exact path
         proxy_pass ${DISPATCHARR_URL_CLEAN}/;
-        
+
         # Automatically inject the API key securely on the server side
         proxy_set_header Authorization "ApiKey ${DISPATCHARR_API_KEY}";
-        
+
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # Important: Allow long-running connections (e.g. for streaming data if needed)
         proxy_read_timeout 300s;
         proxy_connect_timeout 75s;

@@ -17,19 +17,18 @@ export DISPATCHARR_URL_CLEAN=$(echo "$DISPATCHARR_URL" | sed 's:/*$::')
 # Generate nginx config with substituted variables
 envsubst '$NGINX_PORT $DISPATCHARR_URL_CLEAN $DISPATCHARR_API_KEY' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
 
-# Generate application config based on DISABLE_PROXY setting
-if [ "${DISABLE_PROXY}" = "true" ]; then
-  cat <<JSON_EOF > /usr/share/nginx/html/config.json
-{
-  "url": "${DISPATCHARR_URL:-}",
-  "apiKey": "${DISPATCHARR_API_KEY:-}"
-}
-JSON_EOF
-else
-  cat <<JSON_EOF > /usr/share/nginx/html/config.json
+# DISABLE_PROXY used to hand the API key to the browser. It was removed because the
+# key must only ever be used by this container. Old containers that still set it keep
+# working in proxy mode instead of failing to start.
+case "$(echo "${DISABLE_PROXY:-}" | tr '[:upper:]' '[:lower:]')" in
+  true|1|yes)
+    echo "Swaparr: DISABLE_PROXY is no longer supported and is ignored. Swaparr always uses its own proxy now, so the API key never reaches the browser. Remove DISABLE_PROXY from the container settings." >&2
+    ;;
+esac
+
+cat <<JSON_EOF > /usr/share/nginx/html/config.json
 {
   "url": "/dispatcharr-api",
   "apiKey": ""
 }
 JSON_EOF
-fi
