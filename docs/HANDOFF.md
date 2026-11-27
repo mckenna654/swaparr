@@ -3,7 +3,63 @@
 Read this first when picking Swaparr up on another device or in another session.
 Update it at the end of every non-trivial session.
 
-## Current state (5 November 2026)
+## Current state (27 November 2026)
+
+An ideation run (`docs/ideation/2026-11-27-open-ideation.html`) ranked 7 directions.
+Jake asked to build them. They ship in two pull requests, not released or tagged:
+
+**PR 1, branch `claude/next-features`** (ideas 1–5):
+- **Proxy allowlist (idea 2).** nginx forwards only Swaparr's own method+path pairs
+  (`map` at the top of `nginx.conf.template`); everything else gets 403 before the key is
+  added. `run_server.py` has the same `API_ALLOWLIST`; `tests/test_proxy.py` checks both
+  match. `DISABLE_PROXY` is ignored with a startup warning (it put the key in config.json).
+  **Any new Dispatcharr call must be added to both lists.**
+- **Real data and CI (idea 3).** Server settings → Capture sample data (`sample-capture.js`)
+  saves one redacted file: keys kept only if in `KNOWN_FIELDS`, values only if they match
+  `SAFE_VALUES`. Drop captures in `tests/fixtures/`; `tests/fixtures.test.cjs` replays them.
+  `.github/workflows/tests.yml` runs JS, Python, the Playwright browser check and
+  `tests/container-check.sh` (real image + fake Dispatcharr) on every push. The container
+  health check (`healthcheck.sh`) now fails when Dispatcharr does not answer via the proxy.
+- **Channels tab (idea 5).** Opens on channels playing now plus ones seen playing on this
+  device (localStorage `swaparr.recentChannels`, 30 days); loads their sources one at a
+  time. Search covers all channels and loads sources only when the picker opens.
+- **Switch check, find a source, live rate (ideas 1 and 4).** `StreamHealth` in `app.js`
+  holds the pure decisions. `switchStream` returns `{ check }` right after the POST;
+  `confirmSwitch` polls status every 2.5 s for up to 25 s. "Find a working source" walks
+  the other sources in priority order. "Bitrate now" uses byte deltas between readings;
+  Stalled needs 3 empty readings. Source changes this page did not make show on the card.
+
+**PR 2** (ideas 6 and 7): see the section below once it exists.
+
+## Verified (27 November 2026)
+
+- `node --test tests/*.test.cjs`: 18 pass, 1 skipped (no captured fixture yet).
+- `python3 -m unittest discover -s tests`: 8 pass.
+- `tests/source-picker.browser.cjs` (Playwright 1.49.1, local Chrome): PASS, including the
+  new switch check and find-a-source scenarios against the mock.
+- GitHub Actions `Tests` workflow: unit, browser and container jobs pass on the branch.
+  The container job builds the real image, runs `nginx -t`, checks the allowlist with
+  curl and checks the health check passes and then fails when the fake Dispatcharr stops.
+
+## Not verified
+
+- Nothing has run against a real Dispatcharr or on a phone. Unknowns that matter:
+  whether `total_bytes`/`uptime` behave as assumed (live rate, switch check), and
+  whether 25 s is the right switch timeout. A captured sample from Jake's server
+  answers the first.
+- Docker was not available on the Mac (CLI only, no engine); the image was built on
+  GitHub Actions only.
+
+## Next steps
+
+- Jake: merge PR 1, then in Swaparr tap Server settings → Capture sample data and send
+  the file, so `tests/fixtures/` has real shapes.
+- Then PR 2 (watcher and pin).
+- Older open items: `createStreamCard()` still duplicates `updateStreamCard()`;
+  `formatStreamLabel()`/`populateStreamOptions()` are dead apart from tests; the settings
+  modal is a div, not a `<dialog>`. Dependabot PRs #6 and #7 still unreviewed.
+
+## Earlier state (5 November 2026)
 
 v1.2.1 (released 5 November 2026, PR 11) fixes the four correctness findings from a
 full-project code review:
@@ -66,7 +122,7 @@ and section order are unchanged. What changed:
 - Channels table on phones lays each row out as a small grid: number, name, group,
   current source, button.
 
-## Verified
+### Verified
 
 - `node --test tests/*.test.cjs`: 7 pass.
 - `python3 -m unittest discover -s tests`: 3 pass.
@@ -76,13 +132,13 @@ and section order are unchanged. What changed:
   desktop browser: dashboard, expanded client list, picker, edit-order mode, settings
   dialog, channels table. No console errors.
 
-## Not verified
+### Not verified
 
 - Not run against a real Dispatcharr instance or on a phone. The visual check used
   example data only.
 - Docker image not rebuilt.
 
-## Next steps
+### Next steps
 
 - v1.2.0 released 4 November 2026 and v1.2.1 released 5 November 2026 (tag, GitHub
   release, versioned image). The
