@@ -6,9 +6,9 @@ Update it at the end of every non-trivial session.
 ## Current state (27 November 2026)
 
 An ideation run (`docs/ideation/2026-11-27-open-ideation.html`) ranked 7 directions.
-Jake asked to build them. Both pull requests (#12, #13) were merged to `main` on
-27 November 2026, which publishes `ghcr.io/mckenna654/swaparr:latest`. No version tag
-or GitHub release was made:
+Jake asked to build them. Both pull requests (#12, #13) were merged to `main` and
+released as **v1.3.0** on 27 November 2026 (tag, GitHub release, versioned image
+`ghcr.io/mckenna654/swaparr:1.3.0`, and `latest`). Cache-busters are at `?v=1.3.0`:
 
 **PR 1, branch `claude/next-features`** (ideas 1–5):
 - **Proxy allowlist (idea 2).** nginx forwards only Swaparr's own method+path pairs
@@ -74,8 +74,8 @@ or GitHub release was made:
   sample data and send the file, so `tests/fixtures/` has real shapes.
 - To try the watcher on Unraid: add `WATCHER=true` and a path `/data` →
   `/mnt/user/appdata/swaparr` (README has the steps); optionally `NOTIFY_URL`.
-- When ready for a release, bump the version everywhere (`?v=` busters in index.html)
-  and tag it; nothing was tagged for this work.
+- Next release: move the `?v=` busters in index.html, tag `vX.Y.Z`, write the GitHub
+  release. Dependabot PRs (nginx base image, Actions) are still unreviewed.
 - Older open items: `createStreamCard()` still duplicates `updateStreamCard()`;
   `formatStreamLabel()`/`populateStreamOptions()` are dead apart from tests; the settings
   modal is a div, not a `<dialog>`. Dependabot PRs #6 and #7 still unreviewed.
