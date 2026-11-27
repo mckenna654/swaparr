@@ -13,7 +13,7 @@ const Toast = {
     document.body.appendChild(this.container);
   },
 
-  show(title, message, type = "info") {
+  show(title, message, type = "info", options = {}) {
     if (!this.container) this.init();
 
     const toast = document.createElement("div");
@@ -32,19 +32,95 @@ const Toast = {
     body.textContent = message;
     toast.append(heading, body);
 
+    const dismiss = () => {
+      toast.classList.remove("is-visible");
+      setTimeout(() => toast.remove(), 300);
+    };
+    if (options.action) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn btn-secondary toast-action";
+      button.textContent = options.action.label;
+      button.addEventListener("click", () => {
+        dismiss();
+        options.action.onClick();
+      });
+      toast.append(button);
+    }
+
     this.container.appendChild(toast);
     SourcePicker.drawIcons();
 
     // Animate in
     requestAnimationFrame(() => toast.classList.add("is-visible"));
 
-    // Auto remove
-    setTimeout(() => {
-      toast.classList.remove("is-visible");
-      setTimeout(() => {
-        toast.remove();
-      }, 300);
-    }, 4000);
+    // Toasts that offer an action stay longer so there is time to tap it.
+    setTimeout(dismiss, options.duration || (options.action ? 12000 : 4000));
+  },
+};
+
+// Pure decisions about stream health, kept free of the page so tests can run them.
+const StreamHealth = {
+  BUSY_STATES: new Set(["buffering", "connecting", "initializing"]),
+  // Readings in a row with no new data before a stream is called stalled. Dispatcharr's
+  // byte counter may update in steps, so one empty reading is not enough.
+  STALL_READINGS: 3,
+  SWITCH_TIMEOUT_MS: 25000,
+
+  sample(stream, at = Date.now()) {
+    return stream ? {
+      stream_id: stream.stream_id, state: stream.state,
+      total_bytes: Number(stream.total_bytes) || 0, uptime: Number(stream.uptime) || 0, at,
+    } : null;
+  },
+
+  // Data rate between two readings of the same channel. A counter that goes backwards
+  // (Dispatcharr restarted the stream) is a reset, not a stall.
+  liveRate(prev, cur) {
+    if (!prev || !cur || String(prev.stream_id) !== String(cur.stream_id)) return { kind: "measuring" };
+    const bytes = cur.total_bytes - prev.total_bytes;
+    if (!Number.isFinite(bytes) || bytes < 0 || cur.uptime < prev.uptime) return { kind: "measuring" };
+    let seconds = cur.uptime - prev.uptime;
+    if (!(seconds > 0)) seconds = (cur.at - prev.at) / 1000;
+    if (!(seconds > 0)) return { kind: "measuring" };
+    if (bytes === 0) return { kind: "empty" };
+    return { kind: "rate", kbps: (bytes * 8) / seconds / 1000 };
+  },
+
+  // Carries one channel's health from the last reading to this one.
+  next(entry, cur) {
+    const rate = this.liveRate(entry?.sample, cur);
+    if (rate.kind === "empty") {
+      const emptyRuns = (entry?.emptyRuns || 0) + 1;
+      const display = emptyRuns >= this.STALL_READINGS ? { kind: "stalled" } : entry?.display || { kind: "measuring" };
+      return { sample: cur, emptyRuns, display };
+    }
+    return { sample: cur, emptyRuns: 0, display: rate.kind === "rate" ? rate : { kind: "measuring" } };
+  },
+
+  // Was a change of source made by this page, or by something else?
+  classifyChange(prevStreamId, curStreamId, pending, now = Date.now()) {
+    if (prevStreamId == null || curStreamId == null || String(prevStreamId) === String(curStreamId)) return null;
+    if (pending && String(pending.to) === String(curStreamId) && now - pending.at < 120000) return "ours";
+    return "outside";
+  },
+
+  // Decides whether a switch to `toId` has worked, from the readings taken since.
+  evaluateSwitch(samples, fromId, toId, elapsedMs, timeoutMs = this.SWITCH_TIMEOUT_MS) {
+    const last = samples[samples.length - 1];
+    if (samples.length && !last) return { outcome: "stopped" };
+    if (last) {
+      const id = String(last.stream_id);
+      if (id !== String(toId) && (fromId == null || id !== String(fromId))) {
+        return { outcome: "moved", streamId: last.stream_id };
+      }
+      const onNew = samples.filter(item => item && String(item.stream_id) === String(toId));
+      if (onNew.length >= 2) {
+        const [before, after] = onNew.slice(-2);
+        if (!this.BUSY_STATES.has(after.state) && after.total_bytes > before.total_bytes) return { outcome: "live" };
+      }
+    }
+    return elapsedMs >= timeoutMs ? { outcome: "stuck" } : { outcome: "pending" };
   },
 };
 
@@ -93,6 +169,12 @@ const State = {
   channelStreamsCache: {}, // Cache of stream list for each channel ID: { channelId: [streams] }
   m3uAccountsMap: {}, // Map of M3U account ID -> name (e.g. "Primary", "Backup")
   usersMap: {}, // Map of user ID -> username
+  health: {}, // channel UUID -> live rate tracking (StreamHealth.next)
+  lastStreamIds: {}, // channel UUID -> source playing at the last reading
+  pendingSwitches: {}, // channel UUID -> { from, to, at } for switches made on this page
+  outsideChanges: {}, // channel UUID -> { from, to, at } for changes made elsewhere
+  switchChecks: {}, // channel UUID -> token while a switch is being checked
+  findRuns: {}, // channel UUID -> token while "Find a working source" is running
 
   refreshInterval: null,
   refreshCountdown: 5,
@@ -479,23 +561,21 @@ const State = {
         this.activeStreams.length;
 
       let totalClients = 0;
-      let totalBytes = 0;
-
       this.activeStreams.forEach((stream) => {
         totalClients += stream.client_count || 0;
-        totalBytes += stream.total_bytes || 0;
       });
 
       document.getElementById("stat-client-count").textContent = totalClients;
 
-      // Compute total bandwidth from active streams
-      // We can use a rolling bitrate calculation or average
+      this.trackStreams(this.activeStreams);
+
+      // Bandwidth uses the live rate where one is known, else the average since start.
       let totalBitrateKbps = 0;
       this.activeStreams.forEach((stream) => {
-        if (stream.uptime > 0 && stream.total_bytes) {
-          // Calculate bitrate: (bytes * 8) / uptime / 1000 = Kbps
-          const bitrate = (stream.total_bytes * 8) / stream.uptime / 1000;
-          totalBitrateKbps += bitrate;
+        const display = this.health[stream.channel_id]?.display;
+        if (display?.kind === "rate") totalBitrateKbps += display.kbps;
+        else if (display?.kind !== "stalled" && stream.uptime > 0 && stream.total_bytes) {
+          totalBitrateKbps += (stream.total_bytes * 8) / stream.uptime / 1000;
         }
       });
 
@@ -509,6 +589,68 @@ const State = {
       console.error("Fetch active streams failed:", err);
       throw err;
     }
+  },
+
+  // Updates live rates and notices source changes that this page did not make.
+  trackStreams(streams) {
+    const now = Date.now();
+    const seen = new Set();
+    streams.forEach((stream) => {
+      const uuid = stream.channel_id;
+      seen.add(uuid);
+      this.health[uuid] = StreamHealth.next(this.health[uuid], StreamHealth.sample(stream, now));
+      const kind = StreamHealth.classifyChange(this.lastStreamIds[uuid], stream.stream_id, this.pendingSwitches[uuid], now);
+      if (kind === "outside") {
+        this.outsideChanges[uuid] = { from: this.lastStreamIds[uuid], to: stream.stream_id, at: now };
+      }
+      this.lastStreamIds[uuid] = stream.stream_id;
+    });
+    Object.keys(this.health).forEach((uuid) => {
+      if (!seen.has(uuid)) {
+        delete this.health[uuid];
+        delete this.lastStreamIds[uuid];
+        delete this.outsideChanges[uuid];
+      }
+    });
+  },
+
+  sourceName(channelUuid, streamId) {
+    const streams = this.channelStreamsCache[this.channelsByUuid[channelUuid]] || [];
+    const source = streams.find((item) => String(item.id) === String(streamId));
+    if (!source) return `source #${streamId}`;
+    return `${source.name || `Stream #${source.id}`} (${this.formatAccountName(source.m3u_account)})`;
+  },
+
+  formatClock(ms) {
+    return new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  },
+
+  // One short line under the current source: a check in progress, or a change made elsewhere.
+  renderSourceNote(card, channelUuid) {
+    const note = card.querySelector(".source-note");
+    if (!note) return;
+    const outside = this.outsideChanges[channelUuid];
+    if (this.switchChecks[channelUuid]) {
+      note.className = "source-note is-checking";
+      note.textContent = this.switchChecks[channelUuid].label;
+      note.hidden = false;
+    } else if (outside && Date.now() - outside.at < 30 * 60000) {
+      note.className = "source-note is-outside";
+      note.textContent = `Source changed outside this page at ${this.formatClock(outside.at)}. `
+        + `It was ${this.sourceName(channelUuid, outside.from)}.`;
+      note.hidden = false;
+    } else {
+      note.hidden = true;
+      note.textContent = "";
+    }
+  },
+
+  renderRate(element, stream) {
+    const display = this.health[stream.channel_id]?.display || { kind: "measuring" };
+    element.classList.toggle("is-warning", display.kind === "stalled");
+    element.textContent = display.kind === "rate" ? this.formatKbps(display.kbps)
+      : display.kind === "stalled" ? "Stalled" : "Measuring";
+    element.title = `Average since start: ${this.formatBitrate(stream.total_bytes, stream.uptime)}`;
   },
 
   async fetchStreamsForChannel(channelDbId) {
@@ -655,11 +797,12 @@ const State = {
 
     const specValues = card.querySelectorAll(".spec-value");
     if (specValues.length >= 4) {
-      specValues[0].textContent = this.formatBitrate(stream.total_bytes, stream.uptime);
+      this.renderRate(specValues[0], stream);
       specValues[1].textContent = String(stream.client_count || 0);
       specValues[2].textContent = this.formatDuration(stream.uptime);
       specValues[3].textContent = this.formatBytes(stream.total_bytes);
     }
+    this.renderSourceNote(card, stream.channel_id);
 
     const toggleLabel = card.querySelector(".clients-toggle span");
     if (toggleLabel) {
@@ -715,7 +858,7 @@ const State = {
 
       <div class="stream-card-specs">
         <div class="spec-item">
-          <span class="spec-label">Average bitrate</span>
+          <span class="spec-label">Bitrate now</span>
           <span class="spec-value"></span>
         </div>
         <div class="spec-item">
@@ -737,6 +880,7 @@ const State = {
         <div class="select-wrapper">
           <div class="spinner is-small"></div>
         </div>
+        <p class="source-note" role="status" hidden></p>
         <div class="stream-pills-container"></div>
       </div>
 
@@ -751,6 +895,7 @@ const State = {
       </div>
 
       <div class="stream-card-actions">
+        <button type="button" class="btn btn-secondary btn-find-source">Find a working source</button>
         <button type="button" class="btn btn-danger btn-stop-stream">Stop stream</button>
       </div>
     `;
@@ -762,10 +907,11 @@ const State = {
     badge.classList.add(statusClass);
     badge.textContent = statusText;
     const specValues = card.querySelectorAll(".spec-value");
-    specValues[0].textContent = this.formatBitrate(stream.total_bytes, stream.uptime);
+    this.renderRate(specValues[0], stream);
     specValues[1].textContent = String(stream.client_count || 0);
     specValues[2].textContent = this.formatDuration(stream.uptime);
     specValues[3].textContent = this.formatBytes(stream.total_bytes);
+    this.renderSourceNote(card, stream.channel_id);
     card.querySelector(".select-wrapper").id = `select-wrapper-${stream.channel_id}`;
     card.querySelector(".stream-pills-container").id = `pills-container-${stream.channel_id}`;
     const clientsToggle = card.querySelector(".clients-toggle");
@@ -790,6 +936,18 @@ const State = {
     } else if (wrapper) {
       wrapper.replaceChildren(SourcePicker.element("span", "select-placeholder", "Channel not found"));
     }
+
+    const findBtn = card.querySelector(".btn-find-source");
+    findBtn.addEventListener("click", () => {
+      if (this.findRuns[stream.channel_id]) {
+        delete this.findRuns[stream.channel_id];
+        delete this.switchChecks[stream.channel_id];
+        findBtn.textContent = "Find a working source";
+        this.renderSourceNote(card, stream.channel_id);
+      } else {
+        this.findWorkingSource(stream.channel_id, channelName, findBtn);
+      }
+    });
 
     const stopBtn = card.querySelector(".btn-stop-stream");
     stopBtn.addEventListener("click", () => {
@@ -984,40 +1142,133 @@ const State = {
     actionsCell.replaceChildren(button);
   },
 
-  async switchStream(channelUuid, streamId, channelName, streamName) {
+  // Sends the switch, then checks in the background that the new source really plays.
+  // Returns { check }, a promise of the check's verdict, without waiting for it.
+  async switchStream(channelUuid, streamId, channelName, streamName, { quiet = false } = {}) {
+    const fromId = this.activeStreams.find((stream) => stream.channel_id === channelUuid)?.stream_id;
     try {
-      Toast.show(
-        "Switching source",
-        `${channelName}: switching to ${streamName}`,
-        "info",
-      );
+      if (!quiet) Toast.show("Switching source", `${channelName}: switching to ${streamName}`, "info");
 
       await this.apiFetch(`/proxy/ts/change_stream/${channelUuid}`, {
         method: "POST",
         body: JSON.stringify({ stream_id: parseInt(streamId) }),
       });
 
-      Toast.show(
-        "Source switched",
-        `${channelName} now plays ${streamName}`,
-        "success",
-      );
+      this.pendingSwitches[channelUuid] = { from: fromId, to: streamId, at: Date.now() };
+      delete this.outsideChanges[channelUuid];
+      const token = { label: `Checking that ${streamName} plays…` };
+      this.switchChecks[channelUuid] = token;
 
       // Refresh both pages so the user sees the change regardless of which tab they're on
       await this.refreshActiveStreamsOnly();
-
-      // Re-render the explorer table to update its dropdowns (only if it's in the DOM)
       if (document.getElementById("channels-table-body")) {
         this.renderChannelsExplorer();
       }
+
+      const check = this.confirmSwitch(channelUuid, fromId, streamId, channelName, streamName, token, quiet);
+      return { check };
     } catch (err) {
       console.error(err);
-      Toast.show(
-        "Switch failed",
-        `Could not switch stream: ${err.message}`,
-        "error",
-      );
+      if (!quiet) Toast.show("Switch failed", `Could not switch stream: ${err.message}`, "error");
       throw err;
+    }
+  },
+
+  async confirmSwitch(channelUuid, fromId, toId, channelName, streamName, token, quiet) {
+    const started = Date.now();
+    const samples = [];
+    const card = () => document.querySelector(`.stream-card[data-channel-id="${channelUuid}"]`);
+    const finish = (verdict) => {
+      if (this.switchChecks[channelUuid] === token) delete this.switchChecks[channelUuid];
+      const element = card();
+      if (element) this.renderSourceNote(element, channelUuid);
+      if (!quiet) this.reportSwitch(verdict, channelUuid, fromId, channelName, streamName);
+      return verdict;
+    };
+    const element = card();
+    if (element) this.renderSourceNote(element, channelUuid);
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      if (this.switchChecks[channelUuid] !== token) return { outcome: "superseded" };
+      try {
+        await this.fetchActiveStreams();
+      } catch {
+        // A missed reading is not a verdict; keep checking until the time runs out.
+        if (Date.now() - started >= StreamHealth.SWITCH_TIMEOUT_MS) return finish({ outcome: "stuck" });
+        continue;
+      }
+      const current = this.activeStreams.find((stream) => stream.channel_id === channelUuid);
+      samples.push(StreamHealth.sample(current));
+      const verdict = StreamHealth.evaluateSwitch(samples, fromId, toId, Date.now() - started);
+      if (verdict.outcome !== "pending") return finish(verdict);
+    }
+  },
+
+  reportSwitch(verdict, channelUuid, fromId, channelName, streamName) {
+    if (verdict.outcome === "live") {
+      Toast.show("Playing", `${channelName} is live on ${streamName}.`, "success");
+    } else if (verdict.outcome === "stuck") {
+      const goBack = fromId != null && this.activeStreams.some((stream) => stream.channel_id === channelUuid);
+      Toast.show("Not playing yet", `${streamName} has not started on ${channelName} after 25 seconds.`, "warning",
+        goBack ? {
+          action: {
+            label: "Go back to previous source",
+            onClick: () => this.switchStream(channelUuid, fromId, channelName, this.sourceName(channelUuid, fromId)).catch(() => {}),
+          },
+        } : {});
+    } else if (verdict.outcome === "moved") {
+      Toast.show("Source changed again",
+        `${channelName} is now on ${this.sourceName(channelUuid, verdict.streamId)}. Dispatcharr or another device changed it.`,
+        "warning");
+    } else if (verdict.outcome === "stopped") {
+      Toast.show("Channel stopped", `${channelName} stopped while the new source was being checked.`, "info");
+    }
+  },
+
+  // Tries the channel's other sources in priority order until one plays.
+  async findWorkingSource(channelUuid, channelName, button) {
+    if (this.findRuns[channelUuid]) return;
+    const run = {};
+    this.findRuns[channelUuid] = run;
+    const label = (text) => { if (button?.isConnected) button.textContent = text; };
+    try {
+      const channelDbId = this.channelsByUuid[channelUuid];
+      if (!channelDbId) throw new Error("This channel is not in Swaparr's channel list. Refresh and try again.");
+      const streams = await this.apiFetch(`/api/channels/channels/${channelDbId}/streams/`);
+      this.channelStreamsCache[channelDbId] = streams || [];
+      const startId = this.activeStreams.find((stream) => stream.channel_id === channelUuid)?.stream_id;
+      const candidates = (streams || []).filter((source) => String(source.id) !== String(startId));
+      if (!candidates.length) {
+        Toast.show("No other sources", `${channelName} has no other sources to try.`, "info");
+        return;
+      }
+      for (const [index, source] of candidates.entries()) {
+        if (this.findRuns[channelUuid] !== run) return;
+        if (!this.activeStreams.some((stream) => stream.channel_id === channelUuid)) {
+          Toast.show("Channel stopped", `${channelName} is no longer playing.`, "info");
+          return;
+        }
+        label(`Trying ${index + 1} of ${candidates.length}… (tap to stop)`);
+        const name = source.name || `Stream #${source.id}`;
+        const { check } = await this.switchStream(channelUuid, source.id, channelName, name, { quiet: true });
+        const verdict = await check;
+        if (this.findRuns[channelUuid] !== run) return;
+        if (verdict.outcome === "live") {
+          const tries = index + 1;
+          Toast.show("Found a working source", `${channelName} is playing ${name} (${this.formatAccountName(source.m3u_account)}) after ${tries} ${tries === 1 ? "try" : "tries"}.`, "success");
+          return;
+        }
+        if (verdict.outcome === "stopped") {
+          Toast.show("Channel stopped", `${channelName} stopped while sources were being tried.`, "info");
+          return;
+        }
+      }
+      Toast.show("No working source found", `Tried ${candidates.length} other ${candidates.length === 1 ? "source" : "sources"} for ${channelName}; none started playing.`, "warning");
+    } catch (err) {
+      Toast.show("Could not try sources", err.message, "error");
+    } finally {
+      if (this.findRuns[channelUuid] === run) delete this.findRuns[channelUuid];
+      label("Find a working source");
     }
   },
 
@@ -1147,6 +1398,11 @@ const State = {
       return `${(kbps / 1000).toFixed(2)} Mbps`;
     }
     return `${kbps.toFixed(2)} Kbps`;
+  },
+
+  formatKbps(kbps) {
+    if (!(kbps > 0)) return "0.00 Kbps";
+    return kbps > 1000 ? `${(kbps / 1000).toFixed(2)} Mbps` : `${kbps.toFixed(2)} Kbps`;
   },
 
   formatBytes(bytes) {

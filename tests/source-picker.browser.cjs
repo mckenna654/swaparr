@@ -30,12 +30,20 @@ fs.mkdirSync(screenshots, { recursive: true });
     let rejectNextSourceRead = false;
     let failSwitch = false;
     let failSources = false;
+    const deadSources = new Set();
     await page.route("**/*", async route => {
       const url = new URL(route.request().url());
       const endpoint = url.pathname.replace("/dispatcharr-api", "");
       let data;
       if (endpoint === "/config.json") data = { url: "/dispatcharr-api" };
-      else if (endpoint === "/proxy/ts/status") data = { channels: active };
+      else if (endpoint === "/proxy/ts/status") {
+        // Data keeps flowing like a real stream, so live rates and switch checks work.
+        active.forEach(stream => {
+          if (!deadSources.has(stream.stream_id)) stream.total_bytes += 2_500_000;
+          stream.uptime += 5;
+        });
+        data = { channels: active };
+      }
       else if (endpoint.startsWith("/proxy/ts/change_stream/")) {
         writes.push(route.request().postDataJSON());
         if (failSwitch) return route.fulfill({ status: 500, body: "Failed" });
@@ -279,8 +287,37 @@ fs.mkdirSync(screenshots, { recursive: true });
     await page.waitForFunction(() => document.querySelector(".picker-list").textContent.includes("No sources"));
     assert.equal(await page.getByRole("button", { name: "Edit source order", exact: true }).isDisabled(), true);
     await page.keyboard.press("Escape");
+    await page.locator("dialog").waitFor({ state: "detached" });
+
+    // Live rate, changes made elsewhere, the switch check and "Find a working source".
+    sources.splice(0, sources.length,
+      { id: 1, name: "AU: Fox Sports 502", m3u_account: { name: "Infinity" } },
+      { id: 2, name: "AU | FOX SPORTS 502 HD", m3u_account: { name: "Promax" } },
+      { id: 3, name: "Fox Sports 502 FHD", m3u_account: { name: "A1X Media" } });
+    active = [{ channel_id: "fox-502", channel_name: "Fox Sports 502", stream_id: 1, state: "active", uptime: 598, total_bytes: 487230000, client_count: 1 }];
+    await page.evaluate(() => { State.channelStreamsCache = {}; return State.refreshActiveStreamsOnly(); });
+    await page.evaluate(() => State.refreshActiveStreamsOnly());
+    await page.waitForFunction(() => /4\.00 Mbps/.test(document.querySelector(".spec-value").textContent));
+    assert.match(await page.locator(".spec-label").first().innerText(), /Bitrate now/);
+    active[0].stream_id = 2;
+    await page.evaluate(() => State.refreshActiveStreamsOnly());
+    await page.waitForFunction(() => document.querySelector(".source-note:not([hidden])")?.textContent.includes("outside this page"));
+    await change.click();
+    await page.locator('.source-radio[value="3"]').check();
+    await page.locator(".picker-confirm").click();
+    await page.locator("dialog").waitFor({ state: "detached" });
+    await page.waitForFunction(() => document.querySelector(".source-note:not([hidden])")?.textContent.includes("Checking"));
+    await page.waitForFunction(() => [...document.querySelectorAll(".toast-title")].some(title => title.textContent === "Playing"), null, { timeout: 20000 });
+    assert.equal(await page.locator(".source-note").isHidden(), true, "Note clears once the switch is confirmed");
+    // Source 1 never moves data; the search must skip it and land on source 2.
+    deadSources.add(1);
+    await page.getByRole("button", { name: "Find a working source" }).click();
+    await page.waitForFunction(() => [...document.querySelectorAll(".toast-title")].some(title => title.textContent === "Found a working source"), null, { timeout: 60000 });
+    assert.equal(active[0].stream_id, 2);
+    assert.deepEqual(writes.slice(-2), [{ stream_id: 1 }, { stream_id: 2 }]);
+    await page.locator(".stream-card").screenshot({ path: path.join(screenshots, "live-card-checked.png") });
     assert.deepEqual(errors, [], "No browser runtime errors");
-    console.log("PASS: playback picker plus draft cancellation, ordered PATCH persistence, offline save, permissions/retry, concurrent additions/reorder, read-back failure, drag, narrow layout, empty/single sources, and no playback mutations during ordering");
+    console.log("PASS: live rate, outside-change note, verified switch, find a working source, playback picker plus draft cancellation, ordered PATCH persistence, offline save, permissions/retry, concurrent additions/reorder, read-back failure, drag, narrow layout, empty/single sources, and no playback mutations during ordering");
   } finally {
     await browser.close();
   }

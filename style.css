@@ -671,9 +671,28 @@ svg {
 
 .stream-card-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: auto;
   padding-top: 8px;
+}
+
+.spec-value.is-warning {
+  color: var(--warning);
+}
+
+.source-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.source-note.is-checking {
+  color: var(--accent-ink);
+}
+.source-note.is-outside {
+  color: var(--warning);
 }
 
 /* Channels table */
@@ -1125,6 +1144,11 @@ svg {
   padding-left: 24px;
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+.toast-action {
+  align-self: flex-start;
+  margin: 4px 0 0 24px;
 }
 
 /* Source picker: browsing never changes the playing stream */

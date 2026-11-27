@@ -29,12 +29,15 @@ Swaparr brings stream monitoring and source comparison to smaller touch screens,
 
 ## Features
 
--   📺 **Active Stream Monitoring**: Displays channels currently being streamed, uptime, bandwidth, data transferred, and active client counts.
+-   📺 **Active Stream Monitoring**: Displays channels currently being streamed, uptime, bandwidth, data transferred, and active client counts. **Bitrate now** is measured between Swaparr's 5-second readings, so a frozen stream shows **Stalled** within about 15 seconds instead of hiding behind a lifetime average.
+-   ✅ **Switches that prove they worked**: After you switch a source, the card says "Checking…" and Swaparr watches the next readings. You get **Playing** once data flows on the new source, or **Not playing yet** after 25 seconds with a button to go back to the previous source.
+-   🔁 **Find a working source**: One tap tries the channel's other sources in priority order and stops at the first one that actually plays. Tap again to stop.
+-   🕵️ **Changes made elsewhere**: When a channel's source changes without you doing it on this page (Dispatcharr's automatic failover, or another device), the card says so, with the time and the previous source.
 -   🔄 **Stream Source Picker**: Compare configured sources in a mobile bottom sheet or desktop dialog. Selecting a source does not change playback until you confirm; the currently playing source stays clearly marked.
 -   ↕️ **Saved Source Priority**: Choose **Edit source order**, drag sources or use the move-up/down buttons, then **Save order** to persist the priority in Dispatcharr. Works for offline channels too, without switching current playback. Cancel discards your edits.
 -   📊 **Compare Source Quality**: The picker shows each source's last-probed resolution, frame rate, and video codec before you switch. These are saved Dispatcharr probe results, not live measurements; sources without usable stats show "Quality unknown".
 -   ⏹️ **Stream Lifecycle Controls**: Stop active streams (terminate and release client slots) directly from your phone.
--   🔍 **Channels Browser**: Search channels by name or group and compare their sources. Offline sources can be inspected; switching becomes available during playback.
+-   🔍 **Channels Browser**: Opens on *your* channels (playing now, or seen playing on this device in the last 30 days) and loads their sources one at a time. Search covers every channel by name or group. Offline sources can be inspected; switching becomes available during playback.
 -   👥 **Client Detail Inspector**: Expand any active channel card to see exactly who (IP, User-Agent, transfer speed) is watching.
 -   ⚙️ **Server-Side Configuration**: Securely provide your API key via environment variables so you never have to re-type it on different devices.
 -   📱 **Native App Experience**: Full PWA support for Android ("Install App") and iOS ("Add to Home Screen") for a beautiful, fullscreen standalone dashboard.
