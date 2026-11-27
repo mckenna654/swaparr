@@ -9,6 +9,7 @@ dispatcharr/
 # Secrets
 .env
 .env.*
+!.env.example
 
 # Logs
 *.log
@@ -16,3 +17,7 @@ dispatcharr/
 # Claude Code (personal/local files)
 .claude/settings.local.json
 .claude/.deps-installed.sha256
+
+# Python caches
+__pycache__/
+*.pyc
