@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ideation: Where Swaparr goes next</title>
+<style>
+  :root {
+    --bg: #f6f6f4;
+    --surface: #ffffff;
+    --ink: #1d1f21;
+    --ink-2: #44484d;
+    --ink-3: #6b7076;
+    --line: #dcdcd8;
+    --accent: #0f766e;
+    --accent-tint: #e3f1ef;
+    --warn-tint: #fbf1de;
+    --warn-ink: #7a4b00;
+    --code-bg: #efefec;
+    --svg-box: #ffffff;
+    --svg-stroke: #44484d;
+    --svg-muted: #9aa0a6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161718;
+      --surface: #1f2123;
+      --ink: #ececea;
+      --ink-2: #c2c4c6;
+      --ink-3: #93979b;
+      --line: #34373a;
+      --accent: #4fb8ad;
+      --accent-tint: #1d3532;
+      --warn-tint: #3a2f1a;
+      --warn-ink: #f0c97a;
+      --code-bg: #2a2c2f;
+      --svg-box: #24272a;
+      --svg-stroke: #c2c4c6;
+      --svg-muted: #6b7076;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+  header h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .eyebrow { font-size: 0.85rem; color: var(--accent); font-weight: 600; margin: 0 0 6px; }
+  .dek { color: var(--ink-2); margin: 0 0 12px; font-size: 1.05rem; }
+  .byline { color: var(--ink-3); font-size: 0.9rem; margin: 0; }
+  details.meta { margin: 16px 0 8px; font-size: 0.9rem; color: var(--ink-2); }
+  details.meta summary { cursor: pointer; color: var(--ink-3); }
+  details.meta dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 8px 0 0; }
+  details.meta dt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink-3); }
+  details.meta dd { margin: 0; }
+  h2 { font-size: 1.4rem; margin: 48px 0 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.15rem; margin: 0 0 8px; line-height: 1.35; }
+  p, li { max-width: 72ch; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; word-break: break-word; }
+  a { color: var(--accent); }
+  .summary-box { background: var(--accent-tint); border-radius: 10px; padding: 16px 18px; margin: 20px 0; }
+  .summary-box p { margin: 0 0 8px; }
+  .summary-box p:last-child { margin-bottom: 0; }
+  ol.jump { padding-left: 22px; margin: 0 0 20px; }
+  ol.jump li { margin: 2px 0; }
+  ol.jump .tag { color: var(--ink-3); font-size: 0.85rem; }
+  article.idea { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin: 18px 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .chip { font-size: 0.8rem; padding: 2px 10px; border-radius: 999px; background: var(--code-bg); color: var(--ink-2); }
+  .chip.conf { background: var(--accent-tint); color: var(--accent); font-weight: 600; }
+  article.idea dl { margin: 0; }
+  article.idea dt { font-weight: 650; margin-top: 12px; font-size: 0.95rem; }
+  article.idea dd { margin: 2px 0 0; color: var(--ink); }
+  article.idea dd ul { margin: 4px 0 0; padding-left: 20px; }
+  .depends { background: var(--warn-tint); color: var(--warn-ink); border-radius: 8px; padding: 8px 12px; margin-top: 14px; font-size: 0.92rem; }
+  figure { margin: 16px 0 4px; }
+  .svg-wrap { overflow-x: auto; }
+  figure svg { display: block; width: 100%; min-width: 520px; height: auto; }
+  figcaption { font-size: 0.85rem; color: var(--ink-3); margin-top: 6px; }
+  svg .box { fill: var(--svg-box); stroke: var(--svg-stroke); stroke-width: 1.2; }
+  svg .box-accent { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.4; }
+  svg .box-dash { fill: none; stroke: var(--svg-muted); stroke-width: 1.2; stroke-dasharray: 5 4; }
+  svg .ln { stroke: var(--svg-stroke); stroke-width: 1.4; fill: none; }
+  svg .ln-accent { stroke: var(--accent); stroke-width: 2.2; fill: none; }
+  svg .ln-muted { stroke: var(--svg-muted); stroke-width: 2; fill: none; }
+  svg .ln-dash { stroke: var(--svg-muted); stroke-width: 1.2; stroke-dasharray: 4 4; fill: none; }
+  svg text { fill: var(--ink); font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  svg text.muted { fill: var(--ink-3); font-size: 12px; }
+  svg text.lbl { font-weight: 600; fill: var(--ink-2); }
+  svg text.acc { fill: var(--accent); font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; min-width: 520px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--ink-3); font-weight: 600; font-size: 0.85rem; }
+  footer.composition-signal { margin-top: 48px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <p class="eyebrow">Swaparr · ideas worth exploring</p>
+  <h1>Ideation: Where Swaparr goes next</h1>
+  <p class="dek">An open brainstorm across the whole project. Six angles produced 46 raw ideas. After merging duplicates, checking each one against the code and cutting the weak ones, 7 directions remain.</p>
+  <p class="byline"><time datetime="2026-11-27">27 November 2026</time></p>
+</header>
+
+<details class="meta">
+  <summary>Document metadata</summary>
+  <dl>
+    <dt>date</dt><dd>2026-11-27</dd>
+    <dt>topic</dt><dd>open-ideation</dd>
+    <dt>mode</dt><dd>repo-grounded</dd>
+  </dl>
+</details>
+
+<div class="summary-box">
+  <p><strong>Short version.</strong> Swaparr is a good remote control, but it only knows anything while a phone has it open, and it says "done" before it has checked. The cheapest big improvement is making a source switch prove it worked (idea 1). The biggest decision is whether Swaparr gets a small always-on watcher (idea 6), because that is what history, alerts and "pin for tonight" all need.</p>
+  <p>Ideas 2 and 3 are low-risk groundwork: close a security hole in the proxy, and get real data from your Dispatcharr so future changes stop relying on guesses.</p>
+</div>
+
+<section id="grounding-context">
+<h2>Grounding Context</h2>
+<h3>Codebase Context</h3>
+<ul>
+  <li><strong>What Swaparr is today.</strong> A static page (<code>index.html</code>, <code>app.js</code>, <code>source-picker.js</code>, <code>style.css</code>) served by nginx, which forwards calls to Dispatcharr and adds the API key on the server side. It runs as one Docker image on Unraid. The latest release is v1.2.1 (5 November 2026).</li>
+  <li><strong>Screens.</strong> Header stats (Streams, Clients, Bandwidth), live stream cards with their viewers and a Stop button, a Channels table limited to the first 150 rows, a settings dialog, and the source picker for reordering a channel's sources.</li>
+  <li><strong>How it stays current.</strong> The browser asks Dispatcharr for stream status every 5 seconds (<code>app.js:271-286</code>). Nothing runs on the server side, so there is no history and there are no alerts.</li>
+  <li><strong>Known gaps.</strong>
+    <ul>
+      <li>Tests are not run automatically on GitHub.</li>
+      <li>The Channels table can fire 150 requests at once.</li>
+      <li><code>DISABLE_PROXY</code> puts the API key in the browser, which breaks the project's own rule.</li>
+      <li>Some code is duplicated or no longer used.</li>
+      <li>Swaparr has never been run against a real Dispatcharr or on a phone.</li>
+    </ul>
+  </li>
+  <li><strong>Open request.</strong> Issue #3 asks to show resolution, frame rate and catch-up for each source, with filters.</li>
+</ul>
+<h3>External context</h3>
+<ul>
+  <li>Dispatcharr already switches to a backup source on its own when a stream buffers, and its plugins (IPTV Checker, Stream-Mapparr) scan for dead sources on a schedule. Nothing offers a live, phone-first view with memory.</li>
+  <li>Tautulli (the Plex equivalent) is loved for its history, graphs and notifications, and its paid phone app is mainly for push alerts.</li>
+  <li>The gaps users of comparable tools ask for: a history of failovers, push alerts, a view of provider connection limits, and "use this source tonight".</li>
+  <li>Dispatcharr's internal API is still changing and has no documented public event feed.</li>
+</ul>
+</section>
+
+<section id="topic-axes">
+<h2>Topic Axes</h2>
+<p>Decomposition skipped — surprise-me mode.</p>
+</section>
+
+<section id="ranked-ideas">
+<h2>Ranked Ideas</h2>
+<ol class="jump">
+  <li><a href="#idea-1">A source switch that proves it worked</a> <span class="tag">· High confidence · Low–Medium effort</span></li>
+  <li><a href="#idea-2">Let the proxy do only what Swaparr needs</a> <span class="tag">· High · Low</span></li>
+  <li><a href="#idea-3">Real data from your server, checked on every change</a> <span class="tag">· High · Medium</span></li>
+  <li><a href="#idea-4">Show what is happening now, and when Dispatcharr switched by itself</a> <span class="tag">· Medium · Low–Medium</span></li>
+  <li><a href="#idea-5">Channels tab: your channels first, details on demand</a> <span class="tag">· High · Medium</span></li>
+  <li><a href="#idea-6">An always-on watcher: history and phone alerts</a> <span class="tag">· Medium · High</span></li>
+  <li><a href="#idea-7">"Use this source tonight"</a> <span class="tag">· Medium · Medium</span></li>
+</ol>
+
+<article class="idea" id="idea-1">
+  <h3>1. A source switch that proves it worked</h3>
+  <div class="chips"><span class="chip conf">Confidence 85%</span><span class="chip">Complexity: Low–Medium</span></div>
+  <dl>
+    <dt>Description</dt>
+    <dd>Today, tapping a new source shows "Source switched … now plays X" as soon as Dispatcharr accepts the request, before anyone knows whether X actually plays. Instead, the card would say "Checking…" and watch the next few 5-second updates until the new source is live and data is flowing. Then it reports one of three outcomes:
+      <ul>
+        <li>"Live on X".</li>
+        <li>"X is still buffering after 20 s. Go back to Y?", with one tap to go back.</li>
+        <li>"Dispatcharr moved to Z instead".</li>
+      </ul>
+      A natural extension is a single "Find a working source" button. It tries the channel's sources in order, using the same check, and stops at the first one that plays.</dd>
+    <dt>Basis</dt>
+    <dd><code>direct:</code> <code>app.js:909-919</code> sends the switch and immediately shows the success message, with no check. In contrast, saving a priority order already reads the result back and checks it (<code>source-picker.js:252-267</code>: "Dispatcharr returned a different order."). So the less urgent action is verified and the live-TV action is not. <code>external:</code> Juniper's "commit confirmed" and the "Keep these display settings? Reverting in 15 s" pattern both apply a risky change and undo it unless it proves good.</dd>
+    <dt>Rationale</dt>
+    <dd>Switching sources happens at the worst moment: the match is breaking up and people are waiting. A green "success" message over a still-frozen picture is the quickest way to lose trust in the tool. It needs no new server pieces, only data the page already fetches every 5 seconds. It also sets the pattern every later action (stop, pin) can follow.</dd>
+    <dt>Downsides</dt>
+    <dd>Needs a sensible definition of "playing" (state plus data flowing), which can only be tuned against a real server. Automatically switching back could argue with Dispatcharr's own failover, so start with "offer to go back" rather than going back on its own.</dd>
+  </dl>
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 720 230" role="img" aria-label="Today a switch goes straight from request to success message. Proposed: the switch is followed by watching the next updates, which ends in either live on the new source or an offer to go back.">
+      <text class="lbl" x="10" y="20">Today</text>
+      <rect class="box" x="10" y="30" width="140" height="40" rx="6"/>
+      <text x="80" y="55" text-anchor="middle">Tap new source</text>
+      <line class="ln" x1="150" y1="50" x2="176" y2="50"/><polygon points="176,45 184,50 176,55" fill="var(--svg-stroke)"/>
+      <rect class="box" x="184" y="30" width="140" height="40" rx="6"/>
+      <text x="254" y="55" text-anchor="middle">Request sent</text>
+      <line class="ln" x1="324" y1="50" x2="350" y2="50"/><polygon points="350,45 358,50 350,55" fill="var(--svg-stroke)"/>
+      <rect class="box" x="358" y="30" width="160" height="40" rx="6"/>
+      <text x="438" y="55" text-anchor="middle">"Source switched"</text>
+      <text class="muted" x="530" y="55">picture may still be frozen</text>
+
+      <text class="lbl" x="10" y="112">Proposed</text>
+      <rect class="box" x="10" y="130" width="140" height="40" rx="6"/>
+      <text x="80" y="155" text-anchor="middle">Tap new source</text>
+      <line class="ln" x1="150" y1="150" x2="176" y2="150"/><polygon points="176,145 184,150 176,155" fill="var(--svg-stroke)"/>
+      <rect class="box" x="184" y="130" width="140" height="40" rx="6"/>
+      <text x="254" y="155" text-anchor="middle">Request sent</text>
+      <line class="ln" x1="324" y1="150" x2="350" y2="150"/><polygon points="350,145 358,150 350,155" fill="var(--svg-stroke)"/>
+      <rect class="box-accent" x="358" y="130" width="160" height="40" rx="6"/>
+      <text x="438" y="155" text-anchor="middle">Checking next updates</text>
+      <line class="ln" x1="518" y1="150" x2="540" y2="118"/><polygon points="536,113 545,112 543,121" fill="var(--svg-stroke)"/>
+      <line class="ln" x1="518" y1="150" x2="540" y2="182"/><polygon points="543,179 545,188 536,187" fill="var(--svg-stroke)"/>
+      <rect class="box-accent" x="546" y="92" width="164" height="36" rx="6"/>
+      <text x="628" y="115" text-anchor="middle">Live on new source</text>
+      <rect class="box" x="546" y="172" width="164" height="36" rx="6"/>
+      <text x="628" y="195" text-anchor="middle">Stuck: offer go back</text>
+    </svg>
+    </div>
+    <figcaption>Today the success message comes straight after the request. Proposed: success is only shown once the new source is actually live.</figcaption>
+  </figure>
+</article>
+
+<article class="idea" id="idea-2">
+  <h3>2. Let the proxy do only what Swaparr needs</h3>
+  <div class="chips"><span class="chip conf">Confidence 85%</span><span class="chip">Complexity: Low</span></div>
+  <dl>
+    <dt>Description</dt>
+    <dd>Swaparr's nginx passes <em>any</em> request under <code>/dispatcharr-api/</code> to Dispatcharr with the admin API key attached. In practice, anyone who can open Swaparr has full admin control of Dispatcharr: users, provider accounts and settings. Swaparr uses only about eight calls. Allow exactly those (each with its method), refuse everything else, and remove the <code>DISABLE_PROXY</code> option that writes the key into a file the browser downloads. Optionally, keep the list of allowed calls in one small file that also drives the test mock.</dd>
+    <dt>Basis</dt>
+    <dd><code>direct:</code> <code>nginx.conf.template:13-18</code>, a single <code>location /dispatcharr-api/</code> with a catch-all <code>proxy_pass</code> and <code>Authorization "ApiKey …"</code>, with no path or method limits. <code>40-generate-config.sh:21-25</code> writes <code>"apiKey"</code> into <code>config.json</code> when <code>DISABLE_PROXY=true</code>, and <code>run_server.py:30-38</code> does the same. AGENTS.md: "The Dispatcharr API key reaches the browser only through the proxy."</dd>
+    <dt>Rationale</dt>
+    <dd>Swaparr is the piece most likely to be reachable from outside the house, because it is built for phones and sometimes sits behind Nginx Proxy Manager. Today the damage if it is exposed is "all of Dispatcharr"; after this change it is "can switch sources". It is a small config change, and it makes later ideas (alerts with buttons, sharing a link with the household) safe to consider.</dd>
+    <dt>Downsides</dt>
+    <dd>Too tight a list could block a call a future feature needs, and each new feature must add its call. Anyone using <code>DISABLE_PROXY</code> today would have to switch, which is probably nobody, but it deserves a line in the release notes.</dd>
+  </dl>
+</article>
+
+<article class="idea" id="idea-3">
+  <h3>3. Real data from your server, checked on every change</h3>
+  <div class="chips"><span class="chip conf">Confidence 80%</span><span class="chip">Complexity: Medium</span></div>
+  <dl>
+    <dt>Description</dt>
+    <dd>Add a "Capture sample data" button under Server settings. It makes one read-only pass over the calls Swaparr uses, replaces channel, provider and user names with stand-ins (for example "Channel 1" and "Provider A"), strips URLs and keys, and downloads one file. You tap it once and drop the file into a session. It becomes the test data, and GitHub runs the tests on every push. That last part is currently missing: the only workflow builds and publishes the image. The container's health check could also go beyond "the page loads" and confirm that the API key works and Dispatcharr answers.</dd>
+    <dt>Basis</dt>
+    <dd><code>direct:</code> docs/HANDOFF.md, "Not verified": "Not run against a real Dispatcharr instance or on a phone." <code>tests/stream-quality.test.cjs:18</code> uses hand-written stream data. <code>app.js:563-573</code> guesses whether <code>stream_stats</code> is text or an object and silently ignores mismatches. <code>.github/workflows/</code> contains only <code>docker-publish.yml</code>. <code>Dockerfile:15-16</code> checks only that the home page loads. <code>external:</code> record-and-replay test fixtures (Ruby's VCR, Polly.JS) are the usual answer to testing against a service you cannot run in CI.</dd>
+    <dt>Rationale</dt>
+    <dd>Every feature so far, and every idea here, rests on guesses about what Dispatcharr returns. Work happens in cloud sessions that can never reach your server, and a Dispatcharr update can quietly change its internal API. One tap from you replaces those guesses with the real shapes, and automatic tests turn "the button stopped working one Saturday" into a failed check before the release goes out. It also answers open questions behind other ideas, such as whether provider connection limits are visible at all.</dd>
+    <dt>Downsides</dt>
+    <dd>Removing names reliably is the hard part. Real channel and provider names must never reach GitHub, so the stand-in step needs its own tests. The captured data will go stale as Dispatcharr changes, so it needs refreshing now and then.</dd>
+  </dl>
+</article>
+
+<article class="idea" id="idea-4">
+  <h3>4. Show what is happening now, and when Dispatcharr switched by itself</h3>
+  <div class="chips"><span class="chip conf">Confidence 65%</span><span class="chip">Complexity: Low–Medium</span></div>
+  <dl>
+    <dt>Description</dt>
+    <dd>The bitrate on each card is an average over the stream's whole life. A stream that froze two minutes ago can still look healthy. Instead, work out the current rate from how much data arrived between two 5-second updates, and flag a stall within one or two updates. Swaparr also already notices when a channel's source changes between updates. When Swaparr didn't make that change, label it: "Dispatcharr switched from Primary-HD to Backup-SD at 9:04 pm". This all runs in the page, with no new server pieces.</dd>
+    <dt>Basis</dt>
+    <dd><code>direct:</code> <code>app.js:440</code> calculates <code>(stream.total_bytes * 8) / stream.uptime / 1000</code>, a lifetime average. <code>app.js:613-617</code> detects that <code>stream_id</code> changed but uses it only to reload the source list, then drops it. <code>external:</code> Dispatcharr switches sources itself when buffering, without telling anyone. CDN health checks use "several bad readings in a row" rules (hysteresis) so a single blip doesn't raise an alarm.</dd>
+    <dt>Rationale</dt>
+    <dd>"It looks fine in Swaparr but the TV is frozen" and "why did the picture suddenly go SD?" are the two most confusing moments in an IPTV household. Both answers are already in data Swaparr receives and throws away. This also feeds idea 1's "is it playing?" check.</dd>
+    <dt>Downsides</dt>
+    <dd>The verifier flagged a real unknown: Dispatcharr may reset its data counters when it switches sources, which would make the maths jump. That needs checking against real data (idea 3). The history only covers the time the page is open; idea 6 lifts that limit.</dd>
+  </dl>
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 600 200" role="img" aria-label="When a stream stalls, the live rate drops to zero straight away, while the lifetime average shown today barely moves.">
+      <line class="ln" x1="40" y1="170" x2="580" y2="170"/>
+      <line class="ln" x1="40" y1="30" x2="40" y2="170"/>
+      <text class="muted" x="46" y="190">time</text>
+      <text class="muted" x="46" y="26">data rate</text>
+      <line class="ln-dash" x1="310" y1="40" x2="310" y2="170"/>
+      <text class="muted" x="316" y="50">stream freezes</text>
+      <polyline class="ln-muted" points="40,80 300,79 580,110"/>
+      <polyline class="ln-accent" points="40,82 120,76 200,84 290,78 312,166 580,166"/>
+      <text x="400" y="125" class="muted">lifetime average (shown today)</text>
+      <text x="400" y="152" class="acc">live rate from 5 s updates</text>
+    </svg>
+    </div>
+    <figcaption>When a stream freezes, the live rate drops at once. The average Swaparr shows today barely moves.</figcaption>
+  </figure>
+</article>
+
+<article class="idea" id="idea-5">
+  <h3>5. Channels tab: your channels first, details on demand</h3>
+  <div class="chips"><span class="chip conf">Confidence 75%</span><span class="chip">Complexity: Medium</span></div>
+  <dl>
+    <dt>Description</dt>
+    <dd>The Channels tab shows the first 150 channels by number and loads every row's sources at the same moment. A household watches perhaps a dozen channels. Open the tab on "Your channels" instead: the ones seen playing recently (remembered on the phone, or later by idea 6), plus any that need attention, such as having no sources or currently running on a backup. The full list stays behind search, and a channel's sources load only when you open it.</dd>
+    <dt>Basis</dt>
+    <dd><code>direct:</code> <code>app.js:843-845</code> <code>const maxRender = 150;</code>. <code>app.js:862</code> starts a sources request for every row inside the loop, and <code>app.js:894</code> redraws icons once per row. This contradicts <code>app.js:299</code>, "Fetch sequentially to prevent tripping strict reverse proxy rate limiters (429 errors)". HANDOFF lists it as still open.</dd>
+    <dt>Rationale</dt>
+    <dd>It fixes a known risk of "too many requests" errors and slowness on a real server, the kind that could make a switch fail at the wrong moment. It fixes it by changing what the screen is for, not just by slowing the requests down, so the rows on a small screen are the ones that matter.</dd>
+    <dt>Downsides</dt>
+    <dd>"Recently watched" starts empty on a new phone until it learns. Someone browsing for an unusual channel has one extra step (search).</dd>
+  </dl>
+</article>
+
+<article class="idea" id="idea-6">
+  <h3>6. An always-on watcher: history and phone alerts</h3>
+  <div class="chips"><span class="chip conf">Confidence 60%</span><span class="chip">Complexity: High</span></div>
+  <dl>
+    <dt>Description</dt>
+    <dd>Add a small process to the Swaparr container, next to nginx. It checks Dispatcharr every 5 seconds whether or not anyone has the page open. It keeps a compact log on the Unraid appdata folder: streams starting and stopping, sources changing (and whether you or Dispatcharr did it), buffering, and viewers joining and leaving. The page gains a "What happened" timeline, for example "Fox Footy switched sources 3 times between 8:10 and 8:40 pm". One optional setting, a notification link such as ntfy or Apprise, sends a phone alert for things like "every source failed" or "Dispatcharr switched source on a channel you're watching".</dd>
+    <dt>Basis</dt>
+    <dd><code>direct:</code> the only checking happens in a browser timer (<code>app.js:271-286</code>), so nothing is seen while the page is closed. The image is nginx plus static files (<code>Dockerfile:1,7</code>). The server already holds the key (<code>nginx.conf.template:18</code>), so a watcher adds no new secret. Closed issue #4 already moved Dispatcharr calls from the browser into the container once. <code>external:</code> Tautulli's best-loved features (history, graphs, notifications) all sit on an always-on watcher. Its paid phone app is mostly push alerts. Apprise and ntfy reach many notification services with one link and are common on Unraid.</dd>
+    <dt>Rationale</dt>
+    <dd>The failures that matter happen when nobody is looking at Swaparr, and today the evidence is gone by the time you open it. This one change is what history, alerts, "use this source tonight" (idea 7) and later "suggest a better source order" all depend on. It moves Swaparr from a remote control towards a "Tautulli for Dispatcharr", a gap the research found nobody fills.</dd>
+    <dt>Downsides</dt>
+    <dd>This is the big architectural step. The container goes from "just a web server" to running its own process with saved data, which means more to maintain, a volume to set up in the Unraid template, and a second set of requests to Dispatcharr. It is best decided deliberately, after ideas 2 and 3 make the base safe and grounded in real data.</dd>
+  </dl>
+  <figure>
+    <div class="svg-wrap">
+    <svg viewBox="0 0 720 270" role="img" aria-label="The phone talks to nginx in the Swaparr container, which talks to Dispatcharr. A new watcher in the same container also checks Dispatcharr, writes a history file and sends phone alerts.">
+      <rect class="box" x="10" y="100" width="130" height="50" rx="8"/>
+      <text x="75" y="130" text-anchor="middle">Phone (Swaparr)</text>
+      <rect class="box-dash" x="190" y="40" width="300" height="215" rx="10"/>
+      <text class="muted" x="202" y="60">Swaparr container</text>
+      <rect class="box" x="210" y="75" width="120" height="40" rx="6"/>
+      <text x="270" y="100" text-anchor="middle">nginx proxy</text>
+      <rect class="box-accent" x="210" y="150" width="120" height="40" rx="6"/>
+      <text x="270" y="175" text-anchor="middle">Watcher (new)</text>
+      <rect class="box-accent" x="210" y="210" width="120" height="32" rx="6"/>
+      <text x="270" y="231" text-anchor="middle">History file</text>
+      <rect class="box" x="560" y="90" width="140" height="50" rx="8"/>
+      <text x="630" y="120" text-anchor="middle">Dispatcharr</text>
+      <rect class="box-accent" x="560" y="190" width="140" height="40" rx="6"/>
+      <text x="630" y="215" text-anchor="middle">Phone alerts</text>
+      <line class="ln" x1="140" y1="125" x2="210" y2="96"/>
+      <line class="ln" x1="330" y1="95" x2="560" y2="112"/>
+      <line class="ln-accent" x1="330" y1="165" x2="560" y2="130"/>
+      <text class="acc" x="392" y="128">checks every 5 s</text>
+      <line class="ln-accent" x1="270" y1="190" x2="270" y2="210"/>
+      <line class="ln-accent" x1="330" y1="180" x2="560" y2="208"/>
+    </svg>
+    </div>
+    <figcaption>Today only the phone path exists, and only while the page is open. The watcher adds an always-on path that keeps history and sends alerts.</figcaption>
+  </figure>
+</article>
+
+<article class="idea" id="idea-7">
+  <h3>7. "Use this source tonight"</h3>
+  <div class="chips"><span class="chip conf">Confidence 55%</span><span class="chip">Complexity: Medium</span></div>
+  <dl>
+    <dt>Description</dt>
+    <dd>Today there are two separate actions. A switch affects only what is playing now and can be undone by Dispatcharr's own failover or a restart. A priority reorder is permanent and, as its own message says, doesn't change current playback. Add a middle option: "Use this source until 3 am". It switches now, moves the source to the top, remembers the original order and puts it back afterwards. A banner shows what is pinned and when it will revert.</dd>
+    <dt>Basis</dt>
+    <dd><code>direct:</code> the source picker's message "Priority updated in Dispatcharr. Current playback is unchanged." (<code>source-picker.js</code>, just after the save at 261-267). The switch call at <code>app.js:909-912</code> is separate. The safe save-with-conflict-check path (<code>source-picker.js:252-267</code>) can be reused for the automatic revert. <code>external:</code> "pin this source for tonight" appears on the research gap list. Three of the six idea angles reached it independently.</dd>
+    <dt>Rationale</dt>
+    <dd>On big-game nights a provider's main feed is often the overloaded one. People want "use the backup tonight" without permanently changing their setup or having to remember to change it back.</dd>
+    <dt>Downsides</dt>
+    <dd>A timed revert needs something running at 3 am. Without idea 6, it can only revert the next time someone opens Swaparr. It also writes to Dispatcharr automatically, so it must refuse to revert if someone changed the order in the meantime (the existing conflict check does this).</dd>
+  </dl>
+  <p class="depends">Works best after idea 6. A simpler first version reverts when the page is next opened.</p>
+</article>
+</section>
+
+<section id="rejection-summary">
+<h2>Rejection Summary</h2>
+<p>A separate checker reviewed every merged idea against the code. It found no false claims; most cuts are about cost, missing data or overlap.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>#</th><th>Idea</th><th>Reason Rejected</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Rules engine that keeps channels on chosen sources</td><td>Too heavy for one user, and it could fight Dispatcharr's own failover. It also needs the watcher (idea 6) first. Idea 7 covers the common case.</td></tr>
+    <tr><td>2</td><td>Source order that rearranges itself from history</td><td>Needs weeks of watcher history, and silently reshuffling sources is risky. Revisit after idea 6 as one-tap suggestions only.</td></tr>
+    <tr><td>3</td><td>Learn source order from your manual switches ("ant trail")</td><td>Duplicates row 2. Merged there.</td></tr>
+    <tr><td>4</td><td>Provider connection "seat map" (slots used out of the maximum)</td><td>Relies on a Dispatcharr field (max connections per provider) that Swaparr has never read and nobody has confirmed. Check it with idea 3's capture first; promising if the data exists.</td></tr>
+    <tr><td>5</td><td>One shared request queue with automatic back-off</td><td>Overbuilt. Idea 5 removes the cause of the request flood.</td></tr>
+    <tr><td>6</td><td>Simple "Fix the TV" page for the rest of the household</td><td>No stated need yet, and it widens who can reach the controls. Reconsider after idea 2.</td></tr>
+    <tr><td>7</td><td>Siri Shortcuts links that switch or stop streams</td><td>Links that change things are a security risk. Low priority until idea 2 is done.</td></tr>
+    <tr><td>8</td><td>Startup check that detects every API shape change</td><td>Full shape checking is likely to raise false alarms. The useful part (key works, Dispatcharr answers) is folded into idea 3.</td></tr>
+    <tr><td>9</td><td>Nightly GitHub test against a real Dispatcharr container</td><td>Expensive to build and likely to break often while Dispatcharr's API changes. Idea 3 gives most of the value for far less.</td></tr>
+    <tr><td>10</td><td>Match-day pre-flight (test every source before kickoff)</td><td>Needs a scheduler, uses up provider connections, and overlaps the IPTV Checker and Stream-Mapparr plugins.</td></tr>
+    <tr><td>11</td><td>One shared "source scorecard" data model for issue #3</td><td>Sound, but it is how to build issue #3 rather than a new direction. Use it when issue #3 is picked up.</td></tr>
+    <tr><td>12</td><td>0–3 health score per channel (hospital early-warning style)</td><td>Adds little over a stall flag. The useful part is folded into idea 4.</td></tr>
+    <tr><td>13</td><td>One endpoint list that generates the proxy rules, mocks and drift checks</td><td>The extra machinery isn't needed yet. Kept as an optional part of idea 2.</td></tr>
+    <tr><td>14</td><td>Combination: proxy list + capture + drift check + nightly test</td><td>Four ideas stitched together, with the weakest part (row 9) in the middle. The strong parts are ideas 2 and 3.</td></tr>
+    <tr><td>15</td><td>Combination: proxy rules + household page + Siri links</td><td>Rests on rows 6 and 7. Only the proxy part (idea 2) holds up.</td></tr>
+    <tr><td>16</td><td>Combination: pre-flight + seat map + scorecard</td><td>Rests on unconfirmed provider data and on probing sources.</td></tr>
+  </tbody>
+</table>
+</div>
+</section>
+
+<footer class="composition-signal">Composed 2026-11-27T07:06Z by ce-ideate from an open "surprise me" request on the swaparr repository.</footer>
+
+</main>
+</body>
+</html>
