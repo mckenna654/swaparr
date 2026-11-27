@@ -264,12 +264,35 @@
                             id="test-connection-result"
                             class="connection-result"
                         ></div>
+
+                        <div class="form-group capture-group">
+                            <label for="capture-sample-btn">Sample data for troubleshooting</label>
+                            <p class="form-hint">
+                                Saves one file showing how your Dispatcharr
+                                answers. Names, addresses, links and keys are
+                                replaced with stand-ins first. Nothing is
+                                changed on the server.
+                            </p>
+                            <button
+                                type="button"
+                                id="capture-sample-btn"
+                                class="btn btn-secondary"
+                            >
+                                Capture sample data
+                            </button>
+                            <div
+                                id="capture-sample-result"
+                                class="connection-result"
+                                role="status"
+                            ></div>
+                        </div>
                     </form>
                 </div>
             </div>
         </div>
 
         <script src="source-picker.js?v=1.2.1"></script>
+        <script src="sample-capture.js?v=1.2.1"></script>
         <script src="app.js?v=1.2.1"></script>
     </body>
 </html>

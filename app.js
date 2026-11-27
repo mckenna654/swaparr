@@ -196,6 +196,10 @@ const State = {
       .getElementById("test-connection-btn")
       .addEventListener("click", () => this.testConnection());
 
+    document
+      .getElementById("capture-sample-btn")
+      .addEventListener("click", () => this.captureSample());
+
     // Refresh Manual button
     document.getElementById("refresh-btn").addEventListener("click", () => {
       this.refreshAll();
@@ -265,6 +269,27 @@ const State = {
       resultBox.className = "connection-result error";
       resultBox.textContent = `Could not connect: ${err.message}. Check that Dispatcharr is running and reachable.`;
       this.updateConnectionStatus(false, "Network error");
+    }
+  },
+
+  async captureSample() {
+    const button = document.getElementById("capture-sample-btn");
+    const resultBox = document.getElementById("capture-sample-result");
+    button.disabled = true;
+    resultBox.style.display = "block";
+    resultBox.className = "connection-result";
+    resultBox.textContent = "Reading from Dispatcharr…";
+    try {
+      const { summary, file } = await SampleCapture.run((path) => this.apiFetch(path));
+      const name = SampleCapture.download(file);
+      resultBox.className = summary.answered ? "connection-result success" : "connection-result error";
+      resultBox.textContent = `Saved ${name}. ${summary.answered} of ${summary.total} calls answered. `
+        + "Attach it to a GitHub issue or share it with Claude.";
+    } catch (err) {
+      resultBox.className = "connection-result error";
+      resultBox.textContent = `Could not capture sample data: ${err.message}`;
+    } finally {
+      button.disabled = false;
     }
   },
 

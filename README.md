@@ -153,8 +153,15 @@ Swaparr uses high-performance, modern native web styling:
 
 ## Development checks
 
-Run the formatting tests with `node --test tests/stream-quality.test.cjs`.
-Run the Python proxy tests with `python3 -m unittest discover -s tests -p test_proxy.py -v` (uses local loopback servers).
+GitHub runs every check below on each push (`.github/workflows/tests.yml`).
+
+Run the JavaScript tests with `node --test tests/*.test.cjs`.
+Run the Python proxy tests with `python3 -m unittest discover -s tests -v` (uses local loopback servers).
+With Docker, run `sh tests/container-check.sh` to build the image and check the proxy allowlist and health check against a fake Dispatcharr.
+
+**Real response shapes.** In Swaparr, open **Server settings → Capture sample data**. It saves one file showing how your Dispatcharr answers, with names, addresses, links and keys replaced by stand-ins. Put it in `tests/fixtures/` and the tests replay it on every push.
+
+**Health check.** The container reports healthy only when its page loads *and* Dispatcharr answers through the proxy, so a wrong URL or API key shows as "unhealthy" in Docker and Unraid.
 With Playwright installed, run `node tests/source-picker.browser.cjs` for mocked browser checks of source selection, saved priority, conflict detection, error recovery, mouse/touch dragging, keyboard access, and mobile layouts. The test uses no live Dispatcharr server. Set `CHROME_PATH` to use an installed Chrome executable; `PLAYWRIGHT_MODULE`, `LUCIDE_SCRIPT`, and `SCREENSHOT_DIR` are optional overrides for local tooling and screenshot output. Documentation screenshots automatically blur channel and provider names.
 
 ## Docker Image

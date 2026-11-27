@@ -972,6 +972,21 @@ svg {
   color: var(--negative);
 }
 
+.capture-group {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
+}
+.form-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.capture-group .connection-result {
+  margin-top: 12px;
+}
+
 /* Loading and empty states */
 .loading-state {
   grid-column: 1 / -1;
