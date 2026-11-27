@@ -27,7 +27,7 @@ Jake asked to build them. They ship in two pull requests, not released or tagged
   holds the pure decisions. `switchStream` returns `{ check }` right after the POST;
   `confirmSwitch` polls status every 2.5 s for up to 25 s. "Find a working source" walks
   the other sources in priority order. "Bitrate now" uses byte deltas between readings;
-  Stalled needs 3 empty readings. Source changes this page did not make show on the card.
+  Stalled means 15 s since the byte counter last grew (time, not a reading count, because switch checks poll faster). Source changes this page did not make show on the card.
 
 **PR 2** (ideas 6 and 7): see the section below once it exists.
 
@@ -47,6 +47,8 @@ Jake asked to build them. They ship in two pull requests, not released or tagged
   whether `total_bytes`/`uptime` behave as assumed (live rate, switch check), and
   whether 25 s is the right switch timeout. A captured sample from Jake's server
   answers the first.
+- Mixed cache (old `index.html` + new `app.js`) was checked once by hand in Chrome:
+  renders, no errors. New element lookups in `app.js` are guarded for this reason.
 - Docker was not available on the Mac (CLI only, no engine); the image was built on
   GitHub Actions only.
 

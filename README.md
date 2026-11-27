@@ -29,9 +29,9 @@ Swaparr brings stream monitoring and source comparison to smaller touch screens,
 
 ## Features
 
--   📺 **Active Stream Monitoring**: Displays channels currently being streamed, uptime, bandwidth, data transferred, and active client counts. **Bitrate now** is measured between Swaparr's 5-second readings, so a frozen stream shows **Stalled** within about 15 seconds instead of hiding behind a lifetime average.
+-   📺 **Active Stream Monitoring**: Displays channels currently being streamed, uptime, bandwidth, data transferred, and active client counts. **Bitrate now** is measured between Swaparr's 5-second readings, so a stream that receives no new data for 15 seconds shows **Stalled** instead of hiding behind a lifetime average.
 -   ✅ **Switches that prove they worked**: After you switch a source, the card says "Checking…" and Swaparr watches the next readings. You get **Playing** once data flows on the new source, or **Not playing yet** after 25 seconds with a button to go back to the previous source.
--   🔁 **Find a working source**: One tap tries the channel's other sources in priority order and stops at the first one that actually plays. Tap again to stop.
+-   🔁 **Find a working source**: One tap tries the channel's other sources in priority order and stops at the first one that actually plays. If none does, it switches back to where it started. Tap again to stop.
 -   🕵️ **Changes made elsewhere**: When a channel's source changes without you doing it on this page (Dispatcharr's automatic failover, or another device), the card says so, with the time and the previous source.
 -   🔄 **Stream Source Picker**: Compare configured sources in a mobile bottom sheet or desktop dialog. Selecting a source does not change playback until you confirm; the currently playing source stays clearly marked.
 -   ↕️ **Saved Source Priority**: Choose **Edit source order**, drag sources or use the move-up/down buttons, then **Save order** to persist the priority in Dispatcharr. Works for offline channels too, without switching current playback. Cancel discards your edits.

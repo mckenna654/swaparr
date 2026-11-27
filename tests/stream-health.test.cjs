@@ -23,18 +23,21 @@ test("a counter that goes backwards or a new source restarts measuring, never a 
   assert.equal(H.liveRate(undefined, reading(1, 5, 1)).kind, "measuring");
 });
 
-test("stalled only after several readings in a row with no new data", () => {
+test("stalled only after 15 seconds with no new data, however often readings come", () => {
   let entry;
   entry = H.next(entry, reading(1, 1_000_000, 100));
   entry = H.next(entry, reading(1, 2_000_000, 105));
   assert.equal(entry.display.kind, "rate");
-  for (let i = 1; i < H.STALL_READINGS; i++) {
-    entry = H.next(entry, reading(1, 2_000_000, 105 + i * 5));
-    assert.equal(entry.display.kind, "rate", "one or two empty readings keep the last rate");
+  // Three readings a second apart with no new bytes (switch check, manual refresh).
+  for (const t of [106, 107, 108]) {
+    entry = H.next(entry, reading(1, 2_000_000, t));
+    assert.equal(entry.display.kind, "rate", "quick empty readings keep the last rate");
   }
-  entry = H.next(entry, reading(1, 2_000_000, 125));
+  entry = H.next(entry, reading(1, 2_000_000, 119));
+  assert.equal(entry.display.kind, "rate", "14 s without data is not yet a stall");
+  entry = H.next(entry, reading(1, 2_000_000, 120));
   assert.equal(entry.display.kind, "stalled");
-  entry = H.next(entry, reading(1, 2_500_000, 130));
+  entry = H.next(entry, reading(1, 2_500_000, 125));
   assert.equal(entry.display.kind, "rate", "data flowing again clears the stall");
 });
 
