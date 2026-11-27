@@ -7,7 +7,7 @@ const vm = require("node:vm");
 const { test } = require("node:test");
 
 const context = vm.createContext({ window: { addEventListener() {} }, document: { createElement: () => ({}) } });
-vm.runInContext(fs.readFileSync(path.join(__dirname, "../app.js"), "utf8") + "\nthis.health = StreamHealth;", context);
+vm.runInContext(fs.readFileSync(path.join(__dirname, "../app.js"), "utf8") + "\nthis.health = StreamHealth; this.pins = Pins;", context);
 const H = context.health;
 const reading = (stream_id, total_bytes, uptime, state = "active", at = uptime * 1000) => ({ stream_id, total_bytes, uptime, state, at });
 
@@ -69,4 +69,28 @@ test("a switch reports moved, stopped or stuck honestly", () => {
   assert.equal(H.evaluateSwitch([reading(1, 10, 1)], 1, 3, 5000).outcome, "pending", "old source can linger briefly");
   assert.equal(H.evaluateSwitch([reading(1, 10, 1)], 1, 3, 26000).outcome, "stuck");
   assert.equal(H.evaluateSwitch([], 1, 3, 1000).outcome, "pending");
+});
+
+test("pins restore 3 am tonight, or tomorrow once 3 am has passed", () => {
+  const evening = new Date(2026, 10, 27, 20, 30);
+  const tonight = new Date(context.pins.nextRevertTime(evening));
+  assert.equal(tonight.getDate(), 28);
+  assert.equal(tonight.getHours(), 3);
+  const early = new Date(2026, 10, 28, 1, 0);
+  assert.equal(new Date(context.pins.nextRevertTime(early)).getDate(), 28);
+  const after = new Date(2026, 10, 28, 3, 0);
+  assert.equal(new Date(context.pins.nextRevertTime(after)).getDate(), 29);
+});
+
+test("a pin puts the chosen source first and keeps the rest in order", () => {
+  assert.deepEqual([...context.pins.pinnedOrder([1, 2, 3, 4], 3)], [3, 1, 2, 4]);
+  assert.deepEqual([...context.pins.pinnedOrder([1, 2, 3], 1)], [1, 2, 3]);
+});
+
+test("restoring only happens when nobody changed the order since pinning", () => {
+  const pin = { original: [1, 2, 3], pinned: [3, 1, 2] };
+  assert.equal(context.pins.revertPlan(pin, [3, 1, 2]), "restore");
+  assert.equal(context.pins.revertPlan(pin, [1, 3, 2]), "leave", "reordered by hand");
+  assert.equal(context.pins.revertPlan(pin, [3, 1, 2, 4]), "leave", "a source was added");
+  assert.equal(context.pins.revertPlan({ original: [1, 2, 3], pinned: [3, 1, 2, 9] }, [3, 1, 2, 9]), "leave", "never drops a source");
 });

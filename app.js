@@ -155,6 +155,68 @@ const RecentChannels = {
   },
 };
 
+// "Use this source tonight": a temporary priority order that Swaparr puts back at 3 am.
+// Kept on this device; the order is restored the next time Swaparr is open after 3 am.
+const Pins = {
+  KEY: "swaparr.pins",
+
+  read() {
+    try {
+      const list = JSON.parse(localStorage.getItem(this.KEY) || "[]");
+      return Array.isArray(list) ? list.filter((pin) => pin && Number.isSafeInteger(pin.channelId)) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  write(list) {
+    try {
+      localStorage.setItem(this.KEY, JSON.stringify(list));
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  find(channelId) {
+    return this.read().find((pin) => pin.channelId === channelId);
+  },
+
+  save(pin) {
+    return this.write([...this.read().filter((item) => item.channelId !== pin.channelId), pin]);
+  },
+
+  remove(channelId) {
+    this.write(this.read().filter((pin) => pin.channelId !== channelId));
+  },
+
+  nextRevertTime(now = new Date()) {
+    const at = new Date(now);
+    at.setHours(3, 0, 0, 0);
+    if (at <= now) at.setDate(at.getDate() + 1);
+    return at.getTime();
+  },
+
+  pinnedOrder(ids, sourceId) {
+    return [sourceId, ...ids.filter((id) => id !== sourceId)];
+  },
+
+  sameOrder(left, right) {
+    return left.length === right.length && left.every((id, i) => id === right[i]);
+  },
+
+  sameSet(left, right) {
+    const byNumber = (a, b) => a - b;
+    return this.sameOrder([...left].sort(byNumber), [...right].sort(byNumber));
+  },
+
+  // What to do with a pin that is due, given the channel's order now.
+  revertPlan(pin, currentIds) {
+    if (this.sameOrder(currentIds, pin.pinned) && this.sameSet(pin.original, currentIds)) return "restore";
+    return "leave";
+  },
+};
+
 // Global App State
 const State = {
   config: {
@@ -192,6 +254,16 @@ const State = {
     } else {
       this.openSettings();
     }
+
+    this.renderPins();
+    // Due pins are checked every minute while the page is open.
+    setInterval(() => {
+      if (Pins.read().some((pin) => pin.until <= Date.now())) this.revertDuePins();
+    }, 60000);
+    if (this.config.watcher) {
+      document.getElementById("history-section").hidden = false;
+      setInterval(() => this.refreshHistory(), 30000);
+    }
   },
 
   async loadConfig() {
@@ -209,6 +281,7 @@ const State = {
         if (configData.apiKey) {
           this.config.apiKey = configData.apiKey.trim();
         }
+        this.config.watcher = configData.watcher === true;
       }
     } catch (err) {
       console.warn("Failed to load server config:", err);
@@ -445,6 +518,8 @@ const State = {
       this.renderChannelsExplorer();
 
       this.updateConnectionStatus(true);
+      this.revertDuePins();
+      if (this.config.watcher) this.refreshHistory();
       if (document.getElementById("auto-refresh-check").checked) this.startAutoRefresh();
     } catch (err) {
       console.error(err);
@@ -464,6 +539,100 @@ const State = {
     } catch (err) {
       console.error("Auto-refresh failed:", err);
       this.updateConnectionStatus(false, "Not responding");
+    }
+  },
+
+  async refreshHistory() {
+    const list = document.getElementById("history-list");
+    if (!list) return;
+    try {
+      const response = await fetch("/watcher/events?limit=20", { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const events = Array.isArray(data.events) ? data.events : [];
+      if (!events.length) {
+        list.replaceChildren(SourcePicker.element("li", "history-empty",
+          "Nothing yet. Channel starts, stops, source changes and stalls will appear here."));
+        return;
+      }
+      list.replaceChildren(...events.map((event) => this.buildHistoryItem(event)));
+    } catch {
+      list.replaceChildren(SourcePicker.element("li", "history-empty is-error",
+        "The watcher is not answering. Check the Swaparr container log."));
+    }
+  },
+
+  buildHistoryItem(event) {
+    const item = SourcePicker.element("li", `history-item is-${String(event.type || "").replace(/[^a-z_]/g, "")}`);
+    const at = Number(event.at) * 1000;
+    const when = SourcePicker.element("time", "history-time", Number.isFinite(at) ? this.formatWhen(at) : "");
+    if (Number.isFinite(at)) when.setAttribute("datetime", new Date(at).toISOString());
+    item.append(when, SourcePicker.element("span", "history-text", String(event.text || event.type || "")));
+    return item;
+  },
+
+  formatWhen(ms) {
+    const date = new Date(ms);
+    const today = new Date();
+    const time = this.formatClock(ms);
+    if (date.toDateString() === today.toDateString()) return time;
+    return `${date.toLocaleDateString(undefined, { weekday: "short" })} ${time}`;
+  },
+
+  renderPins() {
+    const bar = document.getElementById("pins-bar");
+    if (!bar) return;
+    const pins = Pins.read();
+    bar.hidden = pins.length === 0;
+    bar.replaceChildren(...pins.map((pin) => {
+      const row = SourcePicker.element("div", "pin-row");
+      row.append(SourcePicker.element("span", "pin-text",
+        `${pin.channelName} uses ${pin.sourceName} first until ${this.formatWhen(pin.until)}.`));
+      const button = SourcePicker.element("button", "btn btn-secondary pin-restore", "Restore now");
+      button.type = "button";
+      button.addEventListener("click", () => this.revertDuePins(pin.channelId));
+      row.append(button);
+      return row;
+    }));
+  },
+
+  // Puts pinned channels back to their usual order: due pins, or one channel now.
+  // Only restores when nobody changed the order since pinning; otherwise leaves it.
+  async revertDuePins(onlyChannelId = null) {
+    if (this.revertingPins) return;
+    this.revertingPins = true;
+    try {
+      const now = Date.now();
+      for (const pin of Pins.read()) {
+        if (onlyChannelId == null ? pin.until > now : pin.channelId !== onlyChannelId) continue;
+        try {
+          const path = `/api/channels/channels/${pin.channelId}/streams/`;
+          const latest = await this.apiFetch(path);
+          SourcePicker.validateStreams(latest);
+          if (Pins.revertPlan(pin, latest.map((source) => source.id)) === "restore") {
+            await this.apiFetch(`/api/channels/channels/${pin.channelId}/`, {
+              method: "PATCH", body: JSON.stringify({ streams: pin.original }),
+            });
+            const verified = await this.apiFetch(path);
+            SourcePicker.validateStreams(verified);
+            if (!Pins.sameOrder(verified.map((source) => source.id), pin.original)) {
+              throw new Error("Dispatcharr returned a different order.");
+            }
+            this.channelStreamsCache[pin.channelId] = verified;
+            Toast.show("Source order restored", `${pin.channelName} is back to its usual source order.`, "success");
+          } else {
+            Toast.show("Pin ended", `${pin.channelName}'s sources were changed since pinning, so Swaparr left the order as it is.`, "info");
+          }
+          Pins.remove(pin.channelId);
+        } catch (err) {
+          // Keep the pin and try again later.
+          console.error("Restoring pinned order failed:", err);
+          if (onlyChannelId != null) Toast.show("Could not restore order", err.message, "error");
+        }
+      }
+    } finally {
+      this.revertingPins = false;
+      this.renderPins();
     }
   },
 

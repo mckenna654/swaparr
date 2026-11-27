@@ -58,11 +58,14 @@ const SourcePicker = {
     const confirm = this.element("button", "btn picker-confirm", "Choose a source");
     confirm.type = "button";
     confirm.disabled = true;
+    const pin = this.element("button", "btn btn-secondary picker-pin", "Use until 3 am");
+    pin.type = "button";
+    pin.disabled = true;
     const hint = this.element("p", "picker-hint", "Your stream changes only when you confirm");
-    footer.append(message, confirm, hint);
+    footer.append(message, confirm, pin, hint);
     panel.append(header, description, toolbar, list, footer);
     dialog.append(panel);
-    const session = { dialog, list, message, confirm, close, edit, cancel, reload, title, hint, channelId, channelUuid, channelName,
+    const session = { dialog, list, message, confirm, pin, close, edit, cancel, reload, title, hint, channelId, channelUuid, channelName,
       streams: [], draft: [], editing: false, selected: null, busy: false, trigger: document.activeElement };
     this.session = session;
     const dismiss = () => { if (!session.busy) dialog.close(); };
@@ -94,6 +97,7 @@ const SourcePicker = {
     });
     reload.addEventListener("click", () => this.reloadOrder());
     confirm.addEventListener("click", () => session.editing ? this.saveOrder() : this.confirm());
+    pin.addEventListener("click", () => this.pinTonight());
     document.body.append(dialog);
     document.body.classList.add("picker-open");
     dialog.showModal();
@@ -293,9 +297,11 @@ const SourcePicker = {
     session.cancel.hidden = !session.editing;
     session.reload.hidden = !session.editing || !session.conflict;
     session.confirm.classList.toggle("order-save", session.editing);
+    session.pin.hidden = session.editing;
+    session.pin.disabled = !session.selected || !!session.conflict;
     session.title.textContent = session.editing ? "Edit source order" : "Choose stream source";
     session.hint.textContent = session.editing ? "First source = highest priority. Saving does not switch current playback."
-      : "Your stream changes only when you confirm";
+      : "Your stream changes only when you confirm. Use until 3 am also puts this source first in priority until then.";
     if (session.editing) {
       session.confirm.textContent = "Save order";
       session.confirm.disabled = !!session.conflict || this.sameOrder(session.draft, session.streams);
@@ -316,6 +322,63 @@ const SourcePicker = {
     session.confirm.textContent = same ? "Already playing" : session.selected
       ? `Switch to ${State.formatAccountName(session.selected.m3u_account)}` : "Choose a source";
     session.message.textContent = session.error || (active ? "" : "Channel offline. You can compare sources; switching is available while playing.");
+  },
+
+  // Switches to the selected source (when playing) and makes it first in priority until
+  // 3 am. The previous order is remembered on this device and put back afterwards.
+  async pinTonight() {
+    const session = this.session;
+    if (!session || session.busy || session.editing || !session.selected) return;
+    this.setBusy(true);
+    session.pin.textContent = "Pinning…";
+    let saved = false;
+    try {
+      const path = `/api/channels/channels/${session.channelId}/streams/`;
+      const latest = await State.apiFetch(path);
+      this.validateStreams(latest);
+      if (!this.sameOrder(latest, session.streams)) {
+        throw new Error("Sources changed in Dispatcharr. Close the picker and try again; nothing was changed.");
+      }
+      const ids = latest.map(stream => stream.id);
+      const selectedId = session.selected.id;
+      const pinned = Pins.pinnedOrder(ids, selectedId);
+      // Pinning again keeps the order from before the first pin, so 3 am restores that.
+      const earlier = Pins.find(session.channelId);
+      const original = earlier && Pins.sameSet(earlier.original, ids) ? earlier.original : ids;
+      if (!Pins.sameOrder(ids, pinned)) {
+        await State.apiFetch(`/api/channels/channels/${session.channelId}/`, {
+          method: "PATCH", body: JSON.stringify({ streams: pinned }),
+        });
+        saved = true;
+        const verified = await State.apiFetch(path);
+        this.validateStreams(verified);
+        if (!Pins.sameOrder(verified.map(stream => stream.id), pinned)) throw new Error("Dispatcharr returned a different order.");
+        session.streams = verified;
+        State.channelStreamsCache[session.channelId] = verified;
+      }
+      const sourceName = `${session.selected.name || `Stream #${selectedId}`} (${State.formatAccountName(session.selected.m3u_account)})`;
+      const until = Pins.nextRevertTime();
+      if (!Pins.save({ channelId: session.channelId, channelUuid: session.channelUuid, channelName: session.channelName,
+        sourceId: selectedId, sourceName, original, pinned, until, at: Date.now() })) {
+        throw new Error("This browser would not save the pin, so it cannot restore the order later. Change the order back by hand.");
+      }
+      const status = await State.apiFetch("/proxy/ts/status");
+      const active = (status.channels || []).find(stream => stream.channel_id === session.channelUuid);
+      if (active && String(active.stream_id) !== String(selectedId)) {
+        await State.switchStream(session.channelUuid, selectedId, session.channelName, session.selected.name || `Stream #${selectedId}`);
+      }
+      Toast.show("Pinned until 3 am", `${session.channelName} uses ${sourceName} first. `
+        + `The usual order comes back at ${State.formatWhen(until)}, the next time Swaparr is open.`, "success");
+      State.renderPins();
+      State.renderChannelsExplorer();
+      session.dialog.close();
+    } catch (error) {
+      this.setBusy(false);
+      session.pin.textContent = "Use until 3 am";
+      session.error = saved ? `Order changed, but it could not be confirmed. Reopen the picker to check. ${error.message}`
+        : `Could not pin: ${error.message}`;
+      this.sync();
+    }
   },
 
   async confirm() {
