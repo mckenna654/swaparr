@@ -1,4 +1,4 @@
-FROM nginx:1.27-alpine
+FROM nginx:1.29-alpine
 
 # python3 runs the optional watcher (WATCHER=true); gettext renders the nginx config.
 RUN apk add --no-cache gettext python3
