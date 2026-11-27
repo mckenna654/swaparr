@@ -8,6 +8,13 @@ services:
       - "${PORT:-8080}:${PORT:-8080}"
     environment:
       - NGINX_PORT=${PORT:-8080}
-      - DISPATCHARR_URL=http://192.168.1.100:9191
-      - DISPATCHARR_API_KEY=your_api_key_here
+      - DISPATCHARR_URL=${DISPATCHARR_URL:-http://192.168.1.100:9191}
+      - DISPATCHARR_API_KEY=${DISPATCHARR_API_KEY:-your_api_key_here}
+      # Optional watcher: history under "What happened" and phone alerts.
+      - WATCHER=${WATCHER:-false}
+      - NOTIFY_URL=${NOTIFY_URL:-}
+      - NOTIFY_FORMAT=${NOTIFY_FORMAT:-text}
+    volumes:
+      # Keeps the watcher's history across restarts. Not needed when WATCHER=false.
+      - ./swaparr-data:/data
     restart: unless-stopped

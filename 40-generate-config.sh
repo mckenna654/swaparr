@@ -26,9 +26,15 @@ case "$(echo "${DISABLE_PROXY:-}" | tr '[:upper:]' '[:lower:]')" in
     ;;
 esac
 
+case "$(echo "${WATCHER:-false}" | tr '[:upper:]' '[:lower:]')" in
+  true|1|yes) WATCHER_ON=true ;;
+  *) WATCHER_ON=false ;;
+esac
+
 cat <<JSON_EOF > /usr/share/nginx/html/config.json
 {
   "url": "/dispatcharr-api",
-  "apiKey": ""
+  "apiKey": "",
+  "watcher": ${WATCHER_ON}
 }
 JSON_EOF

@@ -53,7 +53,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
 
             # The browser always talks to this proxy; the API key stays on the server.
-            config_data = {"url": "/dispatcharr-api", "apiKey": ""}
+            # The watcher only runs inside the container.
+            config_data = {"url": "/dispatcharr-api", "apiKey": "", "watcher": False}
             self.wfile.write(json.dumps(config_data).encode("utf-8"))
             return
 
