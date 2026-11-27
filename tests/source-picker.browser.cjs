@@ -327,6 +327,12 @@ fs.mkdirSync(screenshots, { recursive: true });
     // "Use until 3 am": switch now, move the source to the top, put the order back later.
     await change.click();
     await page.locator('.source-radio[value="3"]').check();
+    failOrder = true;
+    await page.getByRole("button", { name: "Use until 3 am" }).click();
+    await page.waitForFunction(() => document.querySelector(".picker-message").textContent.includes("Could not pin"));
+    assert.equal(await page.evaluate(() => localStorage.getItem("swaparr.pins")), "[]", "A refused pin is not kept");
+    assert.equal(await page.locator("#pins-bar").isHidden(), true);
+    failOrder = false;
     const pinOrderWrites = orderWrites.length;
     await page.getByRole("button", { name: "Use until 3 am" }).click();
     await page.locator("dialog").waitFor({ state: "detached" });

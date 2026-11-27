@@ -332,6 +332,8 @@ const SourcePicker = {
     this.setBusy(true);
     session.pin.textContent = "Pinning…";
     let saved = false;
+    let pinSaved = false;
+    let earlier;
     try {
       const path = `/api/channels/channels/${session.channelId}/streams/`;
       const latest = await State.apiFetch(path);
@@ -343,8 +345,18 @@ const SourcePicker = {
       const selectedId = session.selected.id;
       const pinned = Pins.pinnedOrder(ids, selectedId);
       // Pinning again keeps the order from before the first pin, so 3 am restores that.
-      const earlier = Pins.find(session.channelId);
+      earlier = Pins.find(session.channelId);
       const original = earlier && Pins.sameSet(earlier.original, ids) ? earlier.original : ids;
+      // Save the pin first. If anything below fails, the pin can still put the usual
+      // order back; a pin whose order never got applied is left alone at 3 am.
+      const sourceName = `${session.selected.name || `Stream #${selectedId}`} (${State.formatAccountName(session.selected.m3u_account)})`;
+      const until = Pins.nextRevertTime();
+      if (!Pins.save({ channelId: session.channelId, channelUuid: session.channelUuid, channelName: session.channelName,
+        sourceId: selectedId, sourceName, original, pinned, until, at: Date.now() })) {
+        throw new Error("This browser would not save the pin, so it could not restore the order later. Nothing was changed.");
+      }
+      pinSaved = true;
+      State.renderPins();
       if (!Pins.sameOrder(ids, pinned)) {
         await State.apiFetch(`/api/channels/channels/${session.channelId}/`, {
           method: "PATCH", body: JSON.stringify({ streams: pinned }),
@@ -356,26 +368,32 @@ const SourcePicker = {
         session.streams = verified;
         State.channelStreamsCache[session.channelId] = verified;
       }
-      const sourceName = `${session.selected.name || `Stream #${selectedId}`} (${State.formatAccountName(session.selected.m3u_account)})`;
-      const until = Pins.nextRevertTime();
-      if (!Pins.save({ channelId: session.channelId, channelUuid: session.channelUuid, channelName: session.channelName,
-        sourceId: selectedId, sourceName, original, pinned, until, at: Date.now() })) {
-        throw new Error("This browser would not save the pin, so it cannot restore the order later. Change the order back by hand.");
-      }
-      const status = await State.apiFetch("/proxy/ts/status");
-      const active = (status.channels || []).find(stream => stream.channel_id === session.channelUuid);
-      if (active && String(active.stream_id) !== String(selectedId)) {
-        await State.switchStream(session.channelUuid, selectedId, session.channelName, session.selected.name || `Stream #${selectedId}`);
+      let switchNote = "";
+      try {
+        const status = await State.apiFetch("/proxy/ts/status");
+        const active = (status.channels || []).find(stream => stream.channel_id === session.channelUuid);
+        if (active && String(active.stream_id) !== String(selectedId)) {
+          await State.switchStream(session.channelUuid, selectedId, session.channelName, session.selected.name || `Stream #${selectedId}`);
+        }
+      } catch (error) {
+        switchNote = ` Switching playback failed (${error.message}); the new order applies the next time the channel starts.`;
       }
       Toast.show("Pinned until 3 am", `${session.channelName} uses ${sourceName} first. `
-        + `The usual order comes back at ${State.formatWhen(until)}, the next time Swaparr is open.`, "success");
-      State.renderPins();
+        + `The usual order comes back at ${State.formatWhen(until)}, the next time Swaparr is open.${switchNote}`,
+        switchNote ? "warning" : "success");
       State.renderChannelsExplorer();
       session.dialog.close();
     } catch (error) {
+      // Dispatcharr answered "no" before anything changed: drop the new pin again.
+      // With no answer at all the change may have happened, so the pin stays.
+      if (pinSaved && !saved && error.status) {
+        if (earlier) Pins.save(earlier);
+        else Pins.remove(session.channelId);
+      }
       this.setBusy(false);
       session.pin.textContent = "Use until 3 am";
-      session.error = saved ? `Order changed, but it could not be confirmed. Reopen the picker to check. ${error.message}`
+      State.renderPins();
+      session.error = saved ? `Order changed, but it could not be confirmed. The pin is kept, so Restore now or 3 am puts the usual order back. ${error.message}`
         : `Could not pin: ${error.message}`;
       this.sync();
     }

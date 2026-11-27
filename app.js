@@ -261,8 +261,10 @@ const State = {
     setInterval(() => {
       if (Pins.read().some((pin) => pin.until <= Date.now())) this.revertDuePins();
     }, 60000);
-    if (this.config.watcher) {
-      document.getElementById("history-section").hidden = false;
+    // Guarded: an older cached index.html has no history section.
+    const history = document.getElementById("history-section");
+    if (this.config.watcher && history) {
+      history.hidden = false;
       setInterval(() => this.refreshHistory(), 30000);
     }
   },
