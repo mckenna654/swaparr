@@ -48,6 +48,37 @@ const Toast = {
   },
 };
 
+// Channels seen playing on this device, so the Channels list can open on them.
+// Storage can be missing or blocked (private mode); the list then starts empty.
+const RecentChannels = {
+  KEY: "swaparr.recentChannels",
+  KEEP_DAYS: 30,
+  MAX: 40,
+
+  read() {
+    try {
+      const data = JSON.parse(localStorage.getItem(this.KEY) || "{}");
+      const cutoff = Date.now() - this.KEEP_DAYS * 86400000;
+      return Object.fromEntries(Object.entries(data).filter(([, seen]) => Number(seen) > cutoff));
+    } catch {
+      return {};
+    }
+  },
+
+  remember(uuids) {
+    if (!uuids.length) return;
+    try {
+      const data = this.read();
+      const now = Date.now();
+      uuids.forEach((uuid) => { if (uuid) data[uuid] = now; });
+      const kept = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, this.MAX);
+      localStorage.setItem(this.KEY, JSON.stringify(Object.fromEntries(kept)));
+    } catch {
+      // Not remembering is fine; the list just shows what is playing now.
+    }
+  },
+};
+
 // Global App State
 const State = {
   config: {
@@ -441,6 +472,7 @@ const State = {
     try {
       const data = await this.apiFetch("/proxy/ts/status");
       this.activeStreams = data.channels || [];
+      RecentChannels.remember(this.activeStreams.map((stream) => stream.channel_id));
 
       // Update statistics panel
       document.getElementById("stat-active-count").textContent =
@@ -836,91 +868,120 @@ const State = {
   },
 
   renderChannelsExplorer() {
-
     const tbody = document.getElementById("channels-table-body");
+    const caption = document.getElementById("channels-caption");
     const query = document
       .getElementById("channel-search-input")
       .value.toLowerCase()
       .trim();
+    // A newer render cancels source loading started by an older one.
+    const token = (this.explorerToken = (this.explorerToken || 0) + 1);
 
-    tbody.innerHTML = "";
-
-    // Filter channels list
-    const filtered = this.channels.filter((ch) => {
-      const nameMatch = ch.name && ch.name.toLowerCase().includes(query);
-      const groupMatch =
-        (this.channelGroupsMap[ch.channel_group_id] || ch.channel_group?.name || "").toLowerCase().includes(query);
-      return nameMatch || groupMatch;
+    const activeByChannelId = {};
+    this.activeStreams.forEach((s) => {
+      const id = this.channelsByUuid[s.channel_id];
+      if (id) activeByChannelId[id] = s;
     });
 
-    if (filtered.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="5" class="table-placeholder">No channels match</td>
-        </tr>
-      `;
+    let rows;
+    if (query) {
+      // Search covers every channel. Sources load only when a channel is opened.
+      rows = this.channels.filter((ch) => {
+        const nameMatch = ch.name && ch.name.toLowerCase().includes(query);
+        const groupMatch =
+          (this.channelGroupsMap[ch.channel_group_id] || ch.channel_group?.name || "").toLowerCase().includes(query);
+        return nameMatch || groupMatch;
+      });
+      rows.sort((a, b) => (a.channel_number || 0) - (b.channel_number || 0));
+      const total = rows.length;
+      rows = rows.slice(0, 150);
+      if (caption) {
+        caption.textContent = total > rows.length
+          ? `Showing the first ${rows.length} of ${total} matches. Refine the search to narrow it down.`
+          : "Search results. Open Compare sources to see a channel's sources.";
+      }
+    } else {
+      rows = this.yourChannels(activeByChannelId);
+      if (caption) caption.textContent = "Your channels: playing now and watched recently. Search to find any channel.";
+    }
+
+    if (rows.length === 0) {
+      const tr = document.createElement("tr");
+      const td = SourcePicker.element("td", "table-placeholder",
+        query ? "No channels match" : "Channels you watch will appear here. Search to find any channel.");
+      td.colSpan = 5;
+      tr.append(td);
+      tbody.replaceChildren(tr);
       return;
     }
 
-    // Sort channels by number
-    filtered.sort((a, b) => (a.channel_number || 0) - (b.channel_number || 0));
-
-    // Render top 150 channels to maintain performance on mobile screen
-    const maxRender = 150;
-    const itemsToRender = filtered.slice(0, maxRender);
-
-    itemsToRender.forEach((ch) => {
+    const built = rows.map((ch) => {
       const groupName =
         ch.channel_group_id && this.channelGroupsMap[ch.channel_group_id]
           ? this.channelGroupsMap[ch.channel_group_id]
           : "No Group";
-
-      // Determine active stream name (if channel is actively being streamed)
-      const activeStream = this.activeStreams.find(
-        (s) => this.channelsByUuid[s.channel_id] === ch.id,
-      );
+      const activeStream = activeByChannelId[ch.id];
       const tr = this.buildChannelRow(ch, groupName, activeStream);
-
-      tbody.appendChild(tr);
-
-      // Load sources dropdown for the channel
-      this.fetchStreamsForChannel(ch.id).then((streams) => {
-        const sourceCell = document.getElementById(`source-cell-${ch.id}`);
-        const actionsCell = document.getElementById(`actions-cell-${ch.id}`);
-
-        if (!sourceCell || !actionsCell) return;
-
-        if (streams.length === 0) {
-          sourceCell.replaceChildren(SourcePicker.element("span", "cell-negative", "No sources"));
-          actionsCell.replaceChildren(SourcePicker.element("span", "cell-secondary", "–"));
-          return;
-        }
-
-        // Find current selected stream or default to first
-        // If channel is actively streaming, highlight the active stream.
-        // Otherwise look for the default profile or first stream.
-        let activeStreamId = null;
-        if (activeStream && activeStream.stream_id) {
-          activeStreamId = activeStream.stream_id;
-        }
-
-        // Render name of the current active stream (or first stream name as placeholder)
-        const currentStreamObj =
-          streams.find((s) => String(s.id) === String(activeStreamId)) ||
-          streams[0];
-        sourceCell.replaceChildren(...this.buildSourceCell(currentStreamObj));
-
-        const button = SourcePicker.element("button", "btn btn-secondary source-browse-btn", "Compare sources");
-        button.type = "button";
-        button.setAttribute("aria-haspopup", "dialog");
-        button.addEventListener("click", () => SourcePicker.open(ch.id, ch.name, ch.uuid));
-        actionsCell.replaceChildren(button);
-
-        SourcePicker.drawIcons();
-      });
+      this.fillChannelRow(tr, ch, activeStream, this.channelStreamsCache[ch.id] || null);
+      return { ch, tr, activeStream };
     });
+    tbody.replaceChildren(...built.map((row) => row.tr));
 
-    SourcePicker.drawIcons();
+    if (!query) this.loadRowSources(built, token);
+  },
+
+  // Channels playing now first, then the ones seen playing recently on this device.
+  yourChannels(activeByChannelId) {
+    const recent = RecentChannels.read();
+    const seen = new Set();
+    const rows = [];
+    Object.keys(activeByChannelId).forEach((id) => {
+      const ch = this.channelsMap[id];
+      if (ch && !seen.has(ch.id)) { seen.add(ch.id); rows.push(ch); }
+    });
+    Object.entries(recent)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([uuid]) => {
+        const ch = this.channelsMap[this.channelsByUuid[uuid]];
+        if (ch && !seen.has(ch.id)) { seen.add(ch.id); rows.push(ch); }
+      });
+    return rows.slice(0, 30);
+  },
+
+  // Loads sources for "your channels" one at a time, never as a burst.
+  async loadRowSources(built, token) {
+    for (const { ch, tr, activeStream } of built) {
+      if (token !== this.explorerToken) return;
+      if (this.channelStreamsCache[ch.id]) continue;
+      const streams = await this.fetchStreamsForChannel(ch.id);
+      if (token !== this.explorerToken || !tr.isConnected) return;
+      this.fillChannelRow(tr, ch, activeStream, streams);
+    }
+  },
+
+  fillChannelRow(tr, ch, activeStream, streams) {
+    const [, , , sourceCell, actionsCell] = tr.children;
+    if (!sourceCell || !actionsCell) return;
+
+    if (streams && streams.length === 0) {
+      sourceCell.replaceChildren(SourcePicker.element("span", "cell-negative", "No sources"));
+      actionsCell.replaceChildren(SourcePicker.element("span", "cell-secondary", "–"));
+      return;
+    }
+
+    if (streams) {
+      // Playing channels show their active source; others show their first (highest priority).
+      const current = streams.find((s) => String(s.id) === String(activeStream?.stream_id)) || streams[0];
+      sourceCell.replaceChildren(...this.buildSourceCell(current));
+    } else {
+      sourceCell.replaceChildren(SourcePicker.element("span", "cell-secondary", activeStream ? "Loading sources" : "–"));
+    }
+
+    const button = SourcePicker.element("button", "btn btn-secondary source-browse-btn", "Compare sources");
+    button.type = "button";
+    button.setAttribute("aria-haspopup", "dialog");
+    button.addEventListener("click", () => SourcePicker.open(ch.id, ch.name, ch.uuid));
+    actionsCell.replaceChildren(button);
   },
 
   async switchStream(channelUuid, streamId, channelName, streamName) {
