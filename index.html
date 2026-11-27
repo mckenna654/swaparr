@@ -125,11 +125,28 @@
                         </div>
                     </div>
 
+                    <div id="pins-bar" class="pins-bar" hidden></div>
+
                     <div id="active-streams-grid" class="streams-grid">
                         <div class="loading-state">
                             <div class="spinner"></div>
                             <p>Loading streams</p>
                         </div>
+                    </div>
+                </section>
+
+                <!-- What happened (only when the container's watcher is on) -->
+                <section id="history-section" class="section-container" hidden>
+                    <div class="section-header">
+                        <div class="section-title">
+                            <h2>What happened</h2>
+                        </div>
+                    </div>
+                    <p class="channels-caption">
+                        Recorded by Swaparr's watcher, even while this page is closed.
+                    </p>
+                    <div class="card history-card">
+                        <ol id="history-list" class="history-list"></ol>
                     </div>
                 </section>
 

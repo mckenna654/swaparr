@@ -36,6 +36,8 @@ Swaparr brings stream monitoring and source comparison to smaller touch screens,
 -   🔄 **Stream Source Picker**: Compare configured sources in a mobile bottom sheet or desktop dialog. Selecting a source does not change playback until you confirm; the currently playing source stays clearly marked.
 -   ↕️ **Saved Source Priority**: Choose **Edit source order**, drag sources or use the move-up/down buttons, then **Save order** to persist the priority in Dispatcharr. Works for offline channels too, without switching current playback. Cancel discards your edits.
 -   📊 **Compare Source Quality**: The picker shows each source's last-probed resolution, frame rate, and video codec before you switch. These are saved Dispatcharr probe results, not live measurements; sources without usable stats show "Quality unknown".
+-   📌 **Use until 3 am**: In the source picker, **Use until 3 am** switches to a source and puts it first in priority for the night. Swaparr puts the usual order back after 3 am, the next time it is open on that device, and only if nobody changed the order in the meantime. **Restore now** does it straight away.
+-   🕰️ **What happened** *(optional watcher)*: A history of channel starts, stops, source changes and stalls, recorded even while Swaparr is closed, plus optional phone alerts. See *Optional: history and phone alerts* below.
 -   ⏹️ **Stream Lifecycle Controls**: Stop active streams (terminate and release client slots) directly from your phone.
 -   🔍 **Channels Browser**: Opens on *your* channels (playing now, or seen playing on this device in the last 30 days) and loads their sources one at a time. Search covers every channel by name or group. Offline sources can be inspected; switching becomes available during playback.
 -   👥 **Client Detail Inspector**: Expand any active channel card to see exactly who (IP, User-Agent, transfer speed) is watching.
@@ -89,6 +91,17 @@ Open **http://your-server-ip:8080** on your phone or browser.
    - **Key**: `NGINX_PORT`
    - **Value**: `8080`
 7. Apply, then open `http://<unraid-ip>:8080`
+
+#### Optional: history and phone alerts (watcher)
+
+Swaparr can keep watching Dispatcharr while nobody has it open. It then shows **What happened** (channels starting and stopping, source changes, streams that stop receiving data) and can send a phone alert when a source changes or a stream stalls. It only reads from Dispatcharr; it never switches or stops anything.
+
+In the Unraid container settings, add:
+- **Variable** `WATCHER` = `true`
+- **Path** container `/data` → host `/mnt/user/appdata/swaparr` (keeps the history across restarts)
+- *(Optional)* **Variable** `NOTIFY_URL` = where alerts go. With [ntfy](https://ntfy.sh), use `https://ntfy.sh/<a-long-private-topic>` and subscribe to that topic in the ntfy app. For Apprise, Home Assistant or another webhook, also set `NOTIFY_FORMAT` = `json`.
+
+Alerts are limited to one per channel and kind every 5 minutes.
 
 ### Option 2: Python (local development)
 

@@ -36,7 +36,7 @@ http.server.ThreadingHTTPServer(("0.0.0.0", 9191), H).serve_forever()
 docker build -q -t "$IMAGE" . >/dev/null
 docker run -d --name "$APP" --network "$NET" -p "$PORT:8080" \
   -e DISPATCHARR_URL=http://$UP:9191 -e DISPATCHARR_API_KEY=check-only-key \
-  -e DISABLE_PROXY=true "$IMAGE" >/dev/null
+  -e DISABLE_PROXY=true -e WATCHER=true "$IMAGE" >/dev/null
 
 # Wait for nginx to answer.
 i=0
@@ -70,6 +70,19 @@ config=$(curl -fsS "http://127.0.0.1:$PORT/config.json")
 echo "$config" | grep -q 'check-only-key' && fail "config.json exposes the key"
 docker logs "$APP" 2>&1 | grep -q "DISABLE_PROXY is no longer supported" || fail "no warning for DISABLE_PROXY"
 
+# Optional watcher: started, read-only through nginx, config tells the page it is on.
+echo "$config" | grep -q '"watcher": true' || fail "config.json does not report the watcher"
+i=0
+until curl -fsS "http://127.0.0.1:$PORT/watcher/events" 2>/dev/null | grep -q '"enabled": true'; do
+  i=$((i + 1))
+  [ "$i" -gt 20 ] && { echo "FAIL: watcher did not answer"; docker logs "$APP"; exit 1; }
+  sleep 1
+done
+events=$(curl -fsS "http://127.0.0.1:$PORT/watcher/events")
+echo "$events" | grep -q '"last_error": null' || fail "watcher could not read the fake Dispatcharr: $events"
+[ "$(code POST /watcher/events)" = 403 ] || fail "watcher accepts writes through nginx"
+docker logs "$APP" 2>&1 | grep -q "watcher started" || fail "no watcher start-up line in the log"
+
 # The health check runs inside the container; give it one try now.
 if docker exec "$APP" sh -c '[ -x /usr/local/bin/swaparr-healthcheck ]'; then
   docker exec "$APP" /usr/local/bin/swaparr-healthcheck || fail "health check failed with a working Dispatcharr"
@@ -77,4 +90,4 @@ if docker exec "$APP" sh -c '[ -x /usr/local/bin/swaparr-healthcheck ]'; then
   docker exec "$APP" /usr/local/bin/swaparr-healthcheck >/dev/null 2>&1 && fail "health check passed with Dispatcharr down"
 fi
 
-echo "PASS: image builds, nginx config valid, allowlist enforced, key stays server-side"
+echo "PASS: image builds, nginx config valid, allowlist enforced, key stays server-side, watcher answers read-only"

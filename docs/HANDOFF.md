@@ -6,7 +6,9 @@ Update it at the end of every non-trivial session.
 ## Current state (27 November 2026)
 
 An ideation run (`docs/ideation/2026-11-27-open-ideation.html`) ranked 7 directions.
-Jake asked to build them. They ship in two pull requests, not released or tagged:
+Jake asked to build them. Both pull requests (#12, #13) were merged to `main` on
+27 November 2026, which publishes `ghcr.io/mckenna654/swaparr:latest`. No version tag
+or GitHub release was made:
 
 **PR 1, branch `claude/next-features`** (ideas 1–5):
 - **Proxy allowlist (idea 2).** nginx forwards only Swaparr's own method+path pairs
@@ -29,12 +31,26 @@ Jake asked to build them. They ship in two pull requests, not released or tagged
   the other sources in priority order. "Bitrate now" uses byte deltas between readings;
   Stalled means 15 s since the byte counter last grew (time, not a reading count, because switch checks poll faster). Source changes this page did not make show on the card.
 
-**PR 2** (ideas 6 and 7): see the section below once it exists.
+**PR 2, branch `claude/watcher-and-pin`** (ideas 6 and 7, stacked on PR 1):
+- **Watcher (idea 6), off unless `WATCHER=true`.** `watcher/swaparr_watcher.py` (stdlib
+  Python, started by `50-start-watcher.sh`, restarts itself) reads `/proxy/ts/status`
+  every 5 s straight from Dispatcharr, records started/stopped/source_changed/stalled/
+  recovered to `/data/events.jsonl` (2000 kept) and serves them read-only on
+  127.0.0.1:8099, exposed by nginx at `/watcher/` (GET only). `NOTIFY_URL` +
+  `NOTIFY_FORMAT` (text for ntfy, json for Apprise/webhooks) alert on source changes and
+  stalls, max one per channel and kind per 5 minutes. It cannot tell whether Swaparr or
+  Dispatcharr changed a source, so its wording is neutral. The image now includes
+  python3 (about 40 MB more). `config.json` gains `"watcher": true|false`.
+- **Use until 3 am (idea 7), browser-side.** `Pins` in `app.js` (localStorage
+  `swaparr.pins`) and `SourcePicker.pinTonight()`. Restores the original order after 3 am
+  the next time Swaparr is open on that device, only if the order is still exactly the
+  pinned one and has the same sources; otherwise leaves it. The watcher does not restore
+  pins (no write API on purpose).
 
 ## Verified (27 November 2026)
 
-- `node --test tests/*.test.cjs`: 18 pass, 1 skipped (no captured fixture yet).
-- `python3 -m unittest discover -s tests`: 8 pass.
+- `node --test tests/*.test.cjs`: 21 pass, 1 skipped (no captured fixture yet) on PR 2.
+- `python3 -m unittest discover -s tests`: 20 pass on PR 2 (8 proxy, 12 watcher).
 - `tests/source-picker.browser.cjs` (Playwright 1.49.1, local Chrome): PASS, including the
   new switch check and find-a-source scenarios against the mock.
 - GitHub Actions `Tests` workflow: unit, browser and container jobs pass on the branch.
@@ -54,9 +70,12 @@ Jake asked to build them. They ship in two pull requests, not released or tagged
 
 ## Next steps
 
-- Jake: merge PR 1, then in Swaparr tap Server settings → Capture sample data and send
-  the file, so `tests/fixtures/` has real shapes.
-- Then PR 2 (watcher and pin).
+- Jake: pull the new image on Unraid, then in Swaparr tap Server settings → Capture
+  sample data and send the file, so `tests/fixtures/` has real shapes.
+- To try the watcher on Unraid: add `WATCHER=true` and a path `/data` →
+  `/mnt/user/appdata/swaparr` (README has the steps); optionally `NOTIFY_URL`.
+- When ready for a release, bump the version everywhere (`?v=` busters in index.html)
+  and tag it; nothing was tagged for this work.
 - Older open items: `createStreamCard()` still duplicates `updateStreamCard()`;
   `formatStreamLabel()`/`populateStreamOptions()` are dead apart from tests; the settings
   modal is a div, not a `<dialog>`. Dependabot PRs #6 and #7 still unreviewed.

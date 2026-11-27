@@ -35,7 +35,11 @@ fs.mkdirSync(screenshots, { recursive: true });
       const url = new URL(route.request().url());
       const endpoint = url.pathname.replace("/dispatcharr-api", "");
       let data;
-      if (endpoint === "/config.json") data = { url: "/dispatcharr-api" };
+      if (endpoint === "/config.json") data = { url: "/dispatcharr-api", watcher: true };
+      else if (endpoint === "/watcher/events") data = { enabled: true, events: [
+        { at: Date.now() / 1000, type: "source_changed", text: `${hostileGroup} changed source from A to B.` },
+        { at: Date.now() / 1000 - 90000, type: "started", text: "Fox Sports 502 started on Infinity." },
+      ] };
       else if (endpoint === "/proxy/ts/status") {
         // Data keeps flowing like a real stream, so live rates and switch checks work.
         active.forEach(stream => {
@@ -96,6 +100,10 @@ fs.mkdirSync(screenshots, { recursive: true });
     assert.equal(await page.locator("img").count(), 0, "Hostile group name creates no element");
     assert.equal(await page.evaluate(() => window.__xss), undefined);
     assert.match(await page.locator(".stream-group-badge").first().innerText(), /<img/);
+    // The watcher's history shows as plain text, newest first.
+    await page.locator(".history-item").nth(1).waitFor();
+    assert.match(await page.locator(".history-item").first().innerText(), /<img src=x/);
+    assert.equal(await page.locator("img").count(), 0, "History text creates no element");
     assert.match(await page.locator(".current-source").innerText(), /Infinity/);
     const sourceBox = await page.locator(".current-source").boundingBox();
     const changeBox = await change.boundingBox();
@@ -316,8 +324,30 @@ fs.mkdirSync(screenshots, { recursive: true });
     assert.equal(active[0].stream_id, 2);
     assert.deepEqual(writes.slice(-2), [{ stream_id: 1 }, { stream_id: 2 }]);
     await page.locator(".stream-card").screenshot({ path: path.join(screenshots, "live-card-checked.png") });
+    // "Use until 3 am": switch now, move the source to the top, put the order back later.
+    await change.click();
+    await page.locator('.source-radio[value="3"]').check();
+    failOrder = true;
+    await page.getByRole("button", { name: "Use until 3 am" }).click();
+    await page.waitForFunction(() => document.querySelector(".picker-message").textContent.includes("Could not pin"));
+    assert.equal(await page.evaluate(() => localStorage.getItem("swaparr.pins")), "[]", "A refused pin is not kept");
+    assert.equal(await page.locator("#pins-bar").isHidden(), true);
+    failOrder = false;
+    const pinOrderWrites = orderWrites.length;
+    await page.getByRole("button", { name: "Use until 3 am" }).click();
+    await page.locator("dialog").waitFor({ state: "detached" });
+    assert.deepEqual(orderWrites.at(-1), { streams: [3, 1, 2] });
+    assert.equal(orderWrites.length, pinOrderWrites + 1);
+    assert.deepEqual(writes.at(-1), { stream_id: 3 });
+    await page.locator(".pin-row").waitFor();
+    assert.match(await page.locator(".pin-row").innerText(), /first until/);
+    await page.screenshot({ path: path.join(screenshots, "pinned-mobile.png") });
+    await page.getByRole("button", { name: "Restore now" }).click();
+    await page.locator("#pins-bar").waitFor({ state: "hidden" });
+    assert.deepEqual(orderWrites.at(-1), { streams: [1, 2, 3] });
+    assert.equal(await page.evaluate(() => localStorage.getItem("swaparr.pins")), "[]");
     assert.deepEqual(errors, [], "No browser runtime errors");
-    console.log("PASS: live rate, outside-change note, verified switch, find a working source, playback picker plus draft cancellation, ordered PATCH persistence, offline save, permissions/retry, concurrent additions/reorder, read-back failure, drag, narrow layout, empty/single sources, and no playback mutations during ordering");
+    console.log("PASS: watcher history, pin until 3 am and restore, live rate, outside-change note, verified switch, find a working source, playback picker plus draft cancellation, ordered PATCH persistence, offline save, permissions/retry, concurrent additions/reorder, read-back failure, drag, narrow layout, empty/single sources, and no playback mutations during ordering");
   } finally {
     await browser.close();
   }

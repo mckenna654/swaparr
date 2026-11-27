@@ -106,7 +106,7 @@ class ProxyTests(unittest.TestCase):
             connection.request("GET", "/config.json")
             config = json.loads(connection.getresponse().read())
             connection.close()
-        self.assertEqual(config, {"url": "/dispatcharr-api", "apiKey": ""})
+        self.assertEqual(config, {"url": "/dispatcharr-api", "apiKey": "", "watcher": False})
 
 
 class AllowlistTests(unittest.TestCase):

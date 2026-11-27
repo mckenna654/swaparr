@@ -991,6 +991,63 @@ svg {
   color: var(--negative);
 }
 
+.pins-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.pins-bar[hidden] {
+  display: none;
+}
+.pin-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 12px 16px;
+  background: var(--bg-selected);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.history-card {
+  padding: 4px 16px;
+}
+.history-list {
+  list-style: none;
+}
+.history-item,
+.history-empty {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.history-item + .history-item {
+  border-top: 1px solid var(--hairline);
+}
+.history-time {
+  flex: 0 0 auto;
+  min-width: 64px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.history-item.is-stalled .history-text,
+.history-item.is-source_changed .history-text {
+  color: var(--warning);
+}
+.history-empty.is-error {
+  color: var(--negative);
+}
+.picker-pin {
+  width: 100%;
+  margin-top: 8px;
+}
+
 .channels-caption {
   margin: 0 0 12px;
   font-size: 13px;
