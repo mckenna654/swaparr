@@ -60,7 +60,6 @@ docker run -d \
   -e DISPATCHARR_URL="http://192.168.1.100:9191" \
   -e DISPATCHARR_API_KEY="your_api_key_here" \
   -e NGINX_PORT="8080" \
-  -e DISABLE_PROXY="false" \
   ghcr.io/mckenna654/swaparr:latest
 ```
 
@@ -86,10 +85,7 @@ Open **http://your-server-ip:8080** on your phone or browser.
 6. *(Optional)* If you need to change the internal port (e.g. for Gluetun), add another **Variable**:
    - **Key**: `NGINX_PORT`
    - **Value**: `8080`
-7. *(Optional)* If you are running complex network routing where the Swaparr container cannot reach Dispatcharr (like Macvlan), add another **Variable**:
-   - **Key**: `DISABLE_PROXY`
-   - **Value**: `true`
-8. Apply, then open `http://<unraid-ip>:8080`
+7. Apply, then open `http://<unraid-ip>:8080`
 
 ### Option 2: Python (local development)
 
@@ -137,10 +133,15 @@ The Dispatcharr API key must have permission to update channels. Dispatcharr's o
 
 ### API endpoints
 
-Swaparr sends requests directly to Dispatcharr's backend API endpoints:
--   `/proxy/ts/status` — Scans Redis metadata keys to retrieve current stream states.
--   `/proxy/ts/change_stream/<channel_uuid>` — Dynamically re-routes the stream thread to the selected `stream_id` (IPTV playlist link) without interrupting client connections.
--   `/proxy/ts/stop/<channel_uuid>` — Disconnects the clients and stops active streaming buffers to prevent provider ban/over-use.
+The browser never talks to Dispatcharr directly. It calls Swaparr's own proxy, which adds the API key on the server and forwards **only** the calls listed below. Everything else (users, provider accounts, settings and so on) is refused with `403`, so someone who can open Swaparr cannot use it to change the rest of Dispatcharr.
+
+> **`DISABLE_PROXY` has been removed.** It used to send the API key to the browser. Containers that still set it keep working, in proxy mode, and log a warning. If your Swaparr container cannot reach Dispatcharr (for example on a macvlan network), put both containers on a network where they can reach each other.
+
+The forwarded calls:
+-   `GET /api/accounts/users/`, `/api/m3u/accounts/`, `/api/channels/groups/`, `/api/channels/channels/` and `/api/channels/channels/<id>/streams/` — read users, providers, groups, channels and each channel's sources.
+-   `GET /proxy/ts/status` and `/proxy/ts/status/<channel_uuid>` — live streams and the clients watching them.
+-   `POST /proxy/ts/change_stream/<channel_uuid>` — Dynamically re-routes the stream thread to the selected `stream_id` (IPTV playlist link) without interrupting client connections.
+-   `DELETE` or `POST /proxy/ts/stop/<channel_uuid>` — Disconnects the clients and stops active streaming buffers to prevent provider ban/over-use.
 -   `PATCH /api/channels/channels/<channel_id>/` — Saves the complete ordered `streams` ID list as source priority. Both Docker and Python proxy modes support this operation.
 
 ## Styling & Theme
