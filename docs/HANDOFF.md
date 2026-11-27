@@ -6,7 +6,9 @@ Update it at the end of every non-trivial session.
 ## Current state (27 November 2026)
 
 An ideation run (`docs/ideation/2026-11-27-open-ideation.html`) ranked 7 directions.
-Jake asked to build them. They ship in two pull requests, not released or tagged:
+Jake asked to build them. Both pull requests (#12, #13) were merged to `main` on
+27 November 2026, which publishes `ghcr.io/mckenna654/swaparr:latest`. No version tag
+or GitHub release was made:
 
 **PR 1, branch `claude/next-features`** (ideas 1–5):
 - **Proxy allowlist (idea 2).** nginx forwards only Swaparr's own method+path pairs
@@ -68,10 +70,12 @@ Jake asked to build them. They ship in two pull requests, not released or tagged
 
 ## Next steps
 
-- Jake: merge PR 1, then in Swaparr tap Server settings → Capture sample data and send
-  the file, so `tests/fixtures/` has real shapes.
-- Then PR 2. After merging, to try the watcher on Unraid: add `WATCHER=true` and a path
-  `/data` → `/mnt/user/appdata/swaparr` (README has the steps); optionally `NOTIFY_URL`.
+- Jake: pull the new image on Unraid, then in Swaparr tap Server settings → Capture
+  sample data and send the file, so `tests/fixtures/` has real shapes.
+- To try the watcher on Unraid: add `WATCHER=true` and a path `/data` →
+  `/mnt/user/appdata/swaparr` (README has the steps); optionally `NOTIFY_URL`.
+- When ready for a release, bump the version everywhere (`?v=` busters in index.html)
+  and tag it; nothing was tagged for this work.
 - Older open items: `createStreamCard()` still duplicates `updateStreamCard()`;
   `formatStreamLabel()`/`populateStreamOptions()` are dead apart from tests; the settings
   modal is a div, not a `<dialog>`. Dependabot PRs #6 and #7 still unreviewed.
