@@ -62,9 +62,10 @@ const Toast = {
 // Pure decisions about stream health, kept free of the page so tests can run them.
 const StreamHealth = {
   BUSY_STATES: new Set(["buffering", "connecting", "initializing"]),
-  // Readings in a row with no new data before a stream is called stalled. Dispatcharr's
-  // byte counter may update in steps, so one empty reading is not enough.
-  STALL_READINGS: 3,
+  // Seconds without new data before a stream is called stalled. Dispatcharr's byte
+  // counter may update in steps, and readings can come close together (switch checks,
+  // manual refresh), so this is measured in time, not in readings.
+  STALL_MS: 15000,
   SWITCH_TIMEOUT_MS: 25000,
 
   sample(stream, at = Date.now()) {
@@ -91,11 +92,11 @@ const StreamHealth = {
   next(entry, cur) {
     const rate = this.liveRate(entry?.sample, cur);
     if (rate.kind === "empty") {
-      const emptyRuns = (entry?.emptyRuns || 0) + 1;
-      const display = emptyRuns >= this.STALL_READINGS ? { kind: "stalled" } : entry?.display || { kind: "measuring" };
-      return { sample: cur, emptyRuns, display };
+      const lastGrowthAt = entry?.lastGrowthAt ?? entry?.sample?.at ?? cur.at;
+      const display = cur.at - lastGrowthAt >= this.STALL_MS ? { kind: "stalled" } : entry?.display || { kind: "measuring" };
+      return { sample: cur, lastGrowthAt, display };
     }
-    return { sample: cur, emptyRuns: 0, display: rate.kind === "rate" ? rate : { kind: "measuring" } };
+    return { sample: cur, lastGrowthAt: cur.at, display: rate.kind === "rate" ? rate : { kind: "measuring" } };
   },
 
   // Was a change of source made by this page, or by something else?
@@ -382,9 +383,10 @@ const State = {
       .getElementById("test-connection-btn")
       .addEventListener("click", () => this.testConnection());
 
+    // Guarded: a phone can briefly hold an older cached index.html without this button.
     document
       .getElementById("capture-sample-btn")
-      .addEventListener("click", () => this.captureSample());
+      ?.addEventListener("click", () => this.captureSample());
 
     // Refresh Manual button
     document.getElementById("refresh-btn").addEventListener("click", () => {
@@ -737,6 +739,15 @@ const State = {
       document.getElementById("stat-client-count").textContent = totalClients;
 
       this.trackStreams(this.activeStreams);
+
+      // "Your channels" lists what is playing, so redraw it when that set changes.
+      const activeKey = this.activeStreams.map((stream) => stream.channel_id).sort().join(",");
+      if (activeKey !== this.lastActiveKey) {
+        const first = this.lastActiveKey === undefined;
+        this.lastActiveKey = activeKey;
+        const search = document.getElementById("channel-search-input");
+        if (!first && search && !search.value.trim()) this.renderChannelsExplorer();
+      }
 
       // Bandwidth uses the live rate where one is known, else the average since start.
       let totalBitrateKbps = 0;
@@ -1432,7 +1443,17 @@ const State = {
           return;
         }
       }
-      Toast.show("No working source found", `Tried ${candidates.length} other ${candidates.length === 1 ? "source" : "sources"} for ${channelName}; none started playing.`, "warning");
+      let back = "";
+      const nowId = this.activeStreams.find((stream) => stream.channel_id === channelUuid)?.stream_id;
+      if (startId != null && String(nowId) !== String(startId) && this.findRuns[channelUuid] === run) {
+        try {
+          await this.switchStream(channelUuid, startId, channelName, this.sourceName(channelUuid, startId), { quiet: true });
+          back = " Swaparr switched back to the source it started on.";
+        } catch {
+          back = " Swaparr could not switch back to the source it started on.";
+        }
+      }
+      Toast.show("No working source found", `Tried ${candidates.length} other ${candidates.length === 1 ? "source" : "sources"} for ${channelName}; none started playing.${back}`, "warning");
     } catch (err) {
       Toast.show("Could not try sources", err.message, "error");
     } finally {
